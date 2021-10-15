@@ -14,7 +14,7 @@ void get_next_char(){
 	while (c == ' ' || c == '\n' || c == '\r' || c == '\t') c = getchar();
 }
 
-void get_string(char s[]){
+void get_string(const char *s){
 	int len = strlen(s);
 	bool first = true;
 	for (int i = 0; i < len; i++){
@@ -28,7 +28,7 @@ void get_string(char s[]){
 }
 
 bool is_hex(char ch){
-	return isdigit(ch) || (ch >= 'a' && ch <= 'f') || (ch >= 'A' || ch <= 'F');
+	return isdigit(ch) || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F');
 }
 
 int hex(char ch){
@@ -121,7 +121,11 @@ void output(){
 }
 
 int main(){
+	//freopen("in.txt","r",stdin);
+	//freopen("out.txt","w",stdout);
 	FuncDef();
+	get_next_char();
+	if (c != EOF) exit(1);
 	output();
 	return 0;
 }
