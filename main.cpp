@@ -107,7 +107,7 @@ int get_num_len(LL x){
 }
 
 //计算表达式的值 
-int cal(int l,int r){
+LL cal(int l,int r){
 	int state = 0;
 	for (int i = r; i >= l; i--){
 		if (expr[i] == '(') state++;
@@ -154,8 +154,12 @@ int cal(int l,int r){
 					good = false;
 					return 0;
 				}
-				
-				return cal(l,i - 1) / cal(i + 1,r);
+				LL a = cal(l,i - 1),b = cal(i + 1,r);
+				if (!b){
+					good = false;
+					return 0;
+				}
+				return a / b;
 			}
 			if (expr[i] == '%'){
 				if (l > i - 1){
@@ -167,12 +171,17 @@ int cal(int l,int r){
 					return 0;
 				}
 				
-				return cal(l,i - 1) % cal(i + 1,r);
+				LL a = cal(l,i - 1),b = cal(i + 1,r);
+				if (!b){
+					good = false;
+					return 0;
+				}
+				return a % b;
 			}
 		}
 	}
 	if (expr[l] == '(' && expr[r] == ')') return cal(l + 1,r - 1);
-	int res = 0;
+	LL res = 0;
 	for (int i = l; i <= r; i++) res = res * 10 + expr[i] - '0';
 	return res;
 }
@@ -319,7 +328,7 @@ int main(){
 	FuncDef();
 	get_next_char();
 	if (c != EOF) good = false;
-	if (!good) return 1;
+	if (!good) return 233;
 	output();
 	return 0;
 }
