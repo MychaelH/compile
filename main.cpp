@@ -12,7 +12,7 @@ using namespace std;
 const int err = 12;
 char text[10005],expr[10005];
 char c;
-bool is_get = false,good = true;
+bool is_get = false,good = true,ttt = true;
 long long int num = 0,num_expr = 0;
 int pos = 0,L = 0,len_exp;
 
@@ -174,11 +174,11 @@ void check_bracket(){
 void check_oper(){
 	for (int i = 1; i <= len_exp; i++){
 		if (expr[i] == '+' || expr[i] == '-'){
-			if (i == len_exp || expr[i + 1] == ')') good = false;
+			if (i == len_exp || expr[i + 1] == ')') good = false,ttt = false;
 		}
 		if (expr[i] == '*' || expr[i] == '/' || expr[i] == '%'){
-			if (i == len_exp || expr[i + 1] == ')') good = false;
-			if (i == 1 || expr[i - 1] == '(' || expr[i - 1] == '+' || expr[i - 1] == '-') good = false;
+			if (i == len_exp || expr[i + 1] == ')') good = false,ttt = false;
+			if (i == 1 || expr[i - 1] == '(' || expr[i - 1] == '+' || expr[i - 1] == '-' || expr[i - 1] == '*' || expr[i - 1] == '/' || expr[i - 1] == '%') good = false,ttt = false;
 		}
 	}
 }
@@ -314,6 +314,7 @@ int main(){
 	FuncDef();
 	get_next_char();
 	if (c != EOF) good = false;
+	if (!ttt) return 3;
 	if (!good) return 2;
 	output();
 	return 0;
