@@ -328,7 +328,7 @@ int main(){
 	FuncDef();
 	get_next_char();
 	if (c != EOF) good = false;
-	if (!good) return 233;
+	if (!good) return 2;
 	output();
 	return 0;
 }
