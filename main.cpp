@@ -114,17 +114,11 @@ LL cal(int l,int r){
 		else if (expr[i] == ')') state--;
 		else if (!state){
 			if (expr[i] == '+' && (i == l || (expr[i - 1] != '*' && expr[i - 1] != '/'  && expr[i - 1] != '%'))){
-				if (i + 1 > r){
-					good = true;
-					//return 0;
-				}
+				
 				return cal(l,i - 1) + cal(i + 1,r);
 			}
 			if (expr[i] == '-' && (i == l || (expr[i - 1] != '*' && expr[i - 1] != '/' && expr[i - 1] != '%'))){
-				if (i + 1 > r){
-					good = true;
-					//return 0;
-				}
+				
 				return cal(l,i - 1) - cal(i + 1,r);
 			} 
 		}
@@ -135,25 +129,11 @@ LL cal(int l,int r){
 		else if (expr[i] == ')') state--;
 		else if (!state){
 			if (expr[i] == '*'){
-				if (l > i - 1){
-					good = false;
-					return 0;
-				}
-				if (i + 1 > r){
-					good = false;
-					return 0;
-				}
+				
 				return cal(l,i - 1) * cal(i + 1,r);
 			} 
 			if (expr[i] == '/'){
-				if (l > i - 1){
-					good = false;
-					return 0;
-				}
-				if (i + 1 > r){
-					good = false;
-					return 0;
-				}
+				
 				LL a = cal(l,i - 1),b = cal(i + 1,r);
 				if (!b){
 					good = false;
@@ -162,14 +142,6 @@ LL cal(int l,int r){
 				return a / b;
 			}
 			if (expr[i] == '%'){
-				if (l > i - 1){
-					good = false;
-					return 0;
-				}
-				if (i + 1 > r){
-					good = false;
-					return 0;
-				}
 				
 				LL a = cal(l,i - 1),b = cal(i + 1,r);
 				if (!b){
@@ -199,6 +171,17 @@ void check_bracket(){
 	if (tmp) good = false;
 }
 
+void check_oper(){
+	for (int i = 1; i <= len_exp; i++){
+		if (expr[i] == '+' || expr[i] == '-'){
+			if (i == len_exp || expr[i + 1] == ')') good = false;
+		}
+		if (expr[i] == '*' || expr[i] == '/' || expr[i] == '%'){
+			if (i == len_exp || expr[i + 1] == ')') good = false;
+			if (i == 1 || expr[i - 1] == '(' || expr[i - 1] == '+' || expr[i - 1] == '-') good = false;
+		}
+	}
+}
 
 //读入表达式并初步检验合法性后调用求值 
 void get_exp(){
@@ -232,6 +215,7 @@ void get_exp(){
 	}
 	is_get = true;
 	check_bracket();
+	check_oper();
 	//puts(expr + 1);
 	if (good) num_expr = cal(1,len_exp);
 }
@@ -273,7 +257,7 @@ void FuncDef(){
 
 //输出 
 void output(){
-	puts(expr + 1);
+	//puts(expr + 1);
 	printf("define dso_local i32 @main(){\n");
     printf("    ret i32 %lld\n",num_expr);
     printf("}");
