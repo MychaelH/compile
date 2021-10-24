@@ -177,8 +177,8 @@ void check_oper(){
 			if (i == len_exp || expr[i + 1] == ')') good = false,ttt = false;
 		}
 		if (expr[i] == '*' || expr[i] == '/' || expr[i] == '%'){
-			if (i == len_exp || expr[i + 1] == ')') good = false,ttt = false;
-			if (i == 1 || expr[i - 1] == '(' || expr[i - 1] == '+' || expr[i - 1] == '-' || expr[i - 1] == '*' || expr[i - 1] == '/' || expr[i - 1] == '%') good = false,ttt = false;
+			if (i == len_exp || expr[i + 1] == ')') good = false;
+			if (i == 1 || expr[i - 1] == '(' || expr[i - 1] == '+' || expr[i - 1] == '-' || expr[i - 1] == '*' || expr[i - 1] == '/' || expr[i - 1] == '%') good = false;
 		}
 	}
 }
