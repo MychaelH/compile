@@ -115,14 +115,14 @@ LL cal(int l,int r){
 		else if (!state){
 			if (expr[i] == '+' && (i == l || (expr[i - 1] != '*' && expr[i - 1] != '/'  && expr[i - 1] != '%'))){
 				if (i + 1 > r){
-					good = true;
+					good = false;
 					//return 0;
 				}
 				return cal(l,i - 1) + cal(i + 1,r);
 			}
 			if (expr[i] == '-' && (i == l || (expr[i - 1] != '*' && expr[i - 1] != '/' && expr[i - 1] != '%'))){
 				if (i + 1 > r){
-					good = true;
+					good = false;
 					//return 0;
 				}
 				return cal(l,i - 1) - cal(i + 1,r);
