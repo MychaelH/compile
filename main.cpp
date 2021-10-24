@@ -116,14 +116,14 @@ LL cal(int l,int r){
 			if (expr[i] == '+' && (i == l || (expr[i - 1] != '*' && expr[i - 1] != '/'  && expr[i - 1] != '%'))){
 				if (i + 1 > r){
 					good = false;
-					//return 0;
+					return 0;
 				}
 				return cal(l,i - 1) + cal(i + 1,r);
 			}
 			if (expr[i] == '-' && (i == l || (expr[i - 1] != '*' && expr[i - 1] != '/' && expr[i - 1] != '%'))){
 				if (i + 1 > r){
 					good = false;
-					//return 0;
+					return 0;
 				}
 				return cal(l,i - 1) - cal(i + 1,r);
 			} 
@@ -199,6 +199,7 @@ void check_bracket(){
 	if (tmp) good = false;
 }
 
+
 //读入表达式并初步检验合法性后调用求值 
 void get_exp(){
 	len_exp = 0;
@@ -272,6 +273,7 @@ void FuncDef(){
 
 //输出 
 void output(){
+	puts(expr + 1);
 	printf("define dso_local i32 @main(){\n");
     printf("    ret i32 %lld\n",num_expr);
     printf("}");
