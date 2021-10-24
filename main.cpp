@@ -114,11 +114,17 @@ LL cal(int l,int r){
 		else if (expr[i] == ')') state--;
 		else if (!state){
 			if (expr[i] == '+' && (i == l || (expr[i - 1] != '*' && expr[i - 1] != '/'  && expr[i - 1] != '%'))){
-				
+				if (i + 1 > r){
+					good = false;
+					return 0;
+				}
 				return cal(l,i - 1) + cal(i + 1,r);
 			}
 			if (expr[i] == '-' && (i == l || (expr[i - 1] != '*' && expr[i - 1] != '/' && expr[i - 1] != '%'))){
-				
+				if (i + 1 > r){
+					good = false;
+					return 0;
+				}
 				return cal(l,i - 1) - cal(i + 1,r);
 			} 
 		}
@@ -129,11 +135,25 @@ LL cal(int l,int r){
 		else if (expr[i] == ')') state--;
 		else if (!state){
 			if (expr[i] == '*'){
-				
+				if (i + 1 > r){
+					good = false;
+					return 0;
+				}
+				if (i - 1 < l){
+					good = false;
+					return 0;
+				}
 				return cal(l,i - 1) * cal(i + 1,r);
 			} 
 			if (expr[i] == '/'){
-				
+				if (i + 1 > r){
+					good = false;
+					return 0;
+				}
+				if (i - 1 < l){
+					good = false;
+					return 0;
+				}
 				LL a = cal(l,i - 1),b = cal(i + 1,r);
 				if (!b){
 					good = false;
@@ -142,7 +162,14 @@ LL cal(int l,int r){
 				return a / b;
 			}
 			if (expr[i] == '%'){
-				
+				if (i + 1 > r){
+					good = false;
+					return 0;
+				}
+				if (i - 1 < l){
+					good = false;
+					return 0;
+				}
 				LL a = cal(l,i - 1),b = cal(i + 1,r);
 				if (!b){
 					good = false;
@@ -191,14 +218,17 @@ void get_exp(){
 	while (is_exp(c)){
 		if (isdigit(c)){
 			get_number();
-			int len_num = get_num_len(num);
-			LL tmp = 1;
-			for (int i = 1; i < len_num; i++){
-				tmp *= 10;
-			}
-			for (int i = 1; i <= len_num; i++){
-				expr[++len_exp] = num / tmp % 10 + '0';
-				tmp /= 10;
+			if (!num) expr[++len_exp] = '0';
+			else {
+				int len_num = get_num_len(num);
+				LL tmp = 1;
+				for (int i = 1; i < len_num; i++){
+					tmp *= 10;
+				}
+				for (int i = 1; i <= len_num; i++){
+					expr[++len_exp] = num / tmp % 10 + '0';
+					tmp /= 10;
+				}
 			}
 		}
 		else if (c == '-' || c == '+'){
@@ -216,7 +246,7 @@ void get_exp(){
 	}
 	is_get = true;
 	check_bracket();
-	while (expr[len_exp] == '-') len_exp--;
+	//while (expr[len_exp] == '-') len_exp--;
 	check_oper();
 	//puts(expr + 1);
 	if (good) num_expr = cal(1,len_exp);
