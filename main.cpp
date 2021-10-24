@@ -216,6 +216,7 @@ void get_exp(){
 	}
 	is_get = true;
 	check_bracket();
+	while (expr[len_exp] == '+' || expr[len_exp] == '-') len_exp--;
 	check_oper();
 	//puts(expr + 1);
 	if (good) num_expr = cal(1,len_exp);
