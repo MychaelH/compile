@@ -113,14 +113,14 @@ int cal(int l,int r){
 		if (expr[i] == '(') state++;
 		else if (expr[i] == ')') state--;
 		else if (!state){
-			if (expr[i] == '+'){
+			if (expr[i] == '+' && (i == l || (expr[i - 1] != '*' && expr[i - 1] != '/'))){
 				if (i + 1 > r){
 					good = false;
 					return 0;
 				}
 				return cal(l,i - 1) + cal(i + 1,r);
 			} 
-			if (expr[i] == '-'){
+			if (expr[i] == '-' && (i == l || (expr[i - 1] != '*' && expr[i - 1] != '/'))){
 				if (i + 1 > r){
 					good = false;
 					return 0;
