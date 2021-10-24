@@ -97,7 +97,7 @@ void get_number(){
 }
 
 bool is_exp(char ch){
-	return isdigit(c) || c == '+' || c == '-' || c == '*' || c == '/' || c == '(' || c == ')'; 
+	return isdigit(c) || c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '(' || c == ')'; 
 }
 
 int get_num_len(LL x){
@@ -113,17 +113,17 @@ int cal(int l,int r){
 		if (expr[i] == '(') state++;
 		else if (expr[i] == ')') state--;
 		else if (!state){
-			if (expr[i] == '+' && (i == l || (expr[i - 1] != '*' && expr[i - 1] != '/'))){
+			if (expr[i] == '+' && (i == l || (expr[i - 1] != '*' && expr[i - 1] != '/'  && expr[i - 1] != '%'))){
 				if (i + 1 > r){
-					good = true;
-					//return 0;
+					good = false;
+					return 0;
 				}
 				return cal(l,i - 1) + cal(i + 1,r);
 			}
-			if (expr[i] == '-' && (i == l || (expr[i - 1] != '*' && expr[i - 1] != '/'))){
+			if (expr[i] == '-' && (i == l || (expr[i - 1] != '*' && expr[i - 1] != '/' && expr[i - 1] != '%'))){
 				if (i + 1 > r){
-					good = true;
-					//return 0;
+					good = false;
+					return 0;
 				}
 				return cal(l,i - 1) - cal(i + 1,r);
 			} 
@@ -156,6 +156,18 @@ int cal(int l,int r){
 				}
 				
 				return cal(l,i - 1) / cal(i + 1,r);
+			}
+			if (expr[i] == '%'){
+				if (l > i - 1){
+					good = false;
+					return 0;
+				}
+				if (i + 1 > r){
+					good = false;
+					return 0;
+				}
+				
+				return cal(l,i - 1) % cal(i + 1,r);
 			}
 		}
 	}
