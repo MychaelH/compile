@@ -174,7 +174,8 @@ void check_bracket(){
 void check_oper(){
 	for (int i = 1; i <= len_exp; i++){
 		if (expr[i] == '+' || expr[i] == '-'){
-			if (i == len_exp || expr[i + 1] == ')') good = false,ttt = false;
+			if (i == len_exp) good = false,ttt = false;
+			if (expr[i + 1] == ')') good = false;
 		}
 		if (expr[i] == '*' || expr[i] == '/' || expr[i] == '%'){
 			if (i == len_exp || expr[i + 1] == ')') good = false;
