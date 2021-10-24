@@ -97,7 +97,7 @@ void get_number(){
 }
 
 bool is_exp(char ch){
-	return isdigit(c) || c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '(' || c == ')'; 
+	return isdigit(ch) || ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '%' || ch == '(' || ch == ')'; 
 }
 
 int get_num_len(LL x){
@@ -115,15 +115,15 @@ LL cal(int l,int r){
 		else if (!state){
 			if (expr[i] == '+' && (i == l || (expr[i - 1] != '*' && expr[i - 1] != '/'  && expr[i - 1] != '%'))){
 				if (i + 1 > r){
-					good = false;
-					return 0;
+					good = true;
+					//return 0;
 				}
 				return cal(l,i - 1) + cal(i + 1,r);
 			}
 			if (expr[i] == '-' && (i == l || (expr[i - 1] != '*' && expr[i - 1] != '/' && expr[i - 1] != '%'))){
 				if (i + 1 > r){
-					good = false;
-					return 0;
+					good = true;
+					//return 0;
 				}
 				return cal(l,i - 1) - cal(i + 1,r);
 			} 
