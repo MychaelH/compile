@@ -16,9 +16,6 @@ int END;
 bool Error = false;
 int opt_id_cnt = 0;
 
-node exps0[max_n],expr[max_n];
-int exp_n,exp0_n;
-
 void out_put_tabs(){
     for (int i = 1; i <= layer_cnt; i++) printf("\t");
 }
@@ -31,36 +28,6 @@ bool is_not_exp_end(node& u,int& Par) {
     if (Par < 0) return false;
     return true;
 }
-/*
-bool pre_work(){   //将表达式标准化并检查语法正确性
-    exp_n = 0;
-    int Par = 0;
-    for (int i = 1; i <= exp0_n; i++){
-        expr[++exp_n] = exps0[i];
-        if (exps0[i].id == 14) Par++;  //括号匹配
-        else if (exps0[i].id == 15){
-            Par--;
-            if (Par < 0) return false;
-        }
-        else if (exps0[i].id == 20 || exps0[i].id == 21){
-            if (i == exp0_n || exps0[i + 1].id == 15) return false;
-        }
-        else if (exps0[i].id == 22 || exps0[i].id == 23 || exps0[i].id == 24){
-            if (i == exp0_n || exps0[i + 1].id == 15){
-                puts("pre_work ErrA");
-                return false;
-            }
-        }
-        else if (exps0[i].id == 1 || exps0[i].id == 2){
-            if (i > 1 && (exps0[i - 1].id == 1 || exps0[i - 1].id == 2)){
-                puts("pre_work ErrB");
-                return false;
-            }
-        }
-    }
-    if (Par != 0) return false;
-    return true;
-}*/
 
 LL s_num[max_n];   //数字栈
 int s_tag[max_n],s_opt[max_n],s_opt_type[max_n],top_num,top_opt;  //数字标识栈,符号栈
@@ -127,60 +94,56 @@ bool opt_cmp(int opt_a,int opt_b){
     return opt_cmp_chart[opt_a - 20][opt_b - 20];
 }
 
-bool cal_exp(){   //前缀表达式双栈求值
+
+int Exp(int head){        //表达式求值
+    int pos = head,Par = 0,i = 0;
     top_num = 0; top_opt = 0;
-    for (int i = 1; i <= exp_n; i++){
-        if (expr[i].id == 1){        //Ident
-            symbol* p = sym_getIdent(expr[i].name,Space);
+    while (true){
+        i++;
+        if (words[pos].id == 1){        //Ident
+            symbol* p = sym_getIdent(words[pos].name,Space);
             if (p == nullptr) return false;
             out_put_tabs();
             printf("%%%d = load i32, i32* %%%d\n",++opt_id_cnt,p->id);
             s_num[++top_num] = opt_id_cnt;
             s_tag[top_num] = 1;
         }
-        else if (expr[i].id == 2){   //num
-            s_num[++top_num] = expr[i].num;
+        else if (words[pos].id == 2){   //num
+            s_num[++top_num] = words[pos].num;
             s_tag[top_num] = 0;
         }
-        else if (expr[i].id == 14){   //(
+        else if (words[pos].id == 14){   //(
             s_opt[++top_opt] = 14;
             s_opt_type[top_opt] = 0;
+            Par++;
         }
-        else if (expr[i].id == 15){   //)
+        else if (words[pos].id == 15){   //)
+            Par--;
+            if (Par < 0) break;
             while (s_opt[top_opt] != 14){  //弹出符号直至(
                 if (!exp_stack_pop()) return false;
             }
             top_opt--;
         }
-        else if (expr[i].id >= 20 && expr[i].id <= 24){  //opt
-            if (i <= 1 || (expr[i - 1].id >= 20 && expr[i - 1].id <= 24) || expr[i - 1].id == 14){
-                s_opt[++top_opt] = expr[i].id;
+        else if (words[pos].id >= 20 && words[pos].id <= 24){  //opt
+            if (i <= 1 || (words[pos - 1].id >= 20 && words[pos - 1].id <= 24) || words[pos - 1].id == 14){
+                s_opt[++top_opt] = words[pos].id;
                 s_opt_type[top_opt] = 1;
             }
             else {
-                while (top_opt > 0 && (s_opt_type[top_opt] == 1 || s_opt[top_opt] != 14 && opt_cmp(s_opt[top_opt], expr[i].id))) {
+                while (top_opt > 0 && (s_opt_type[top_opt] == 1 || s_opt[top_opt] != 14 && opt_cmp(s_opt[top_opt], words[pos].id))) {
                     if (!exp_stack_pop()) return false;
                 }
-                s_opt[++top_opt] = expr[i].id;
+                s_opt[++top_opt] = words[pos].id;
                 s_opt_type[top_opt] = 0;
             }
         }
+        else break;
+        pos++;
     }
     while (top_opt){
-        if (!exp_stack_pop()) return false;
+        if (!exp_stack_pop()) {Error = true; return END;}
     }
-    return true;
-}
-
-int Exp(int head){        //表达式求值
-    int pos = head,Par = 0;
-    exp_n = 0;
-    while (is_not_exp_end(words[pos],Par)){
-        expr[++exp_n] = words[pos++];
-    }
-    if (words[pos].id == 100) {Error = true; puts("Error at Exp 1"); return END;}
-    //if (!pre_work()) {Error = true; puts("Error at Exp 2"); return END;}
-    if (!cal_exp()) {Error = true; puts("Error at Exp 3"); return END;}
     return pos;
 }
 
@@ -276,6 +239,7 @@ int ConstDecl(int head){
         if (words[pos].id != 13) {Error = true; return END;} //;
         pos++;
     }
+    else {Error = true; return END;}
     return pos;
 }
 
@@ -313,6 +277,10 @@ int Stmt(int head){
         if (words[pos].id != 13) {Error = true; puts("Error at Stmt 3"); return END;}
         pos++;
     }
+    //;
+    else if (words[pos].id == 13){
+        pos++;
+    }
     //Exp
     else {
         pos = Exp(pos);
@@ -324,7 +292,7 @@ int Stmt(int head){
 
 int BlockItem(int head){
     int pos = head;
-    while (words[pos].id != 17 && !Error) {   //遇到{退出
+    while (words[pos].id != 17 && !Error) {   //遇到}退出
         if (words[pos].id == 11 || words[pos].id == 9) {  //const ||  int
             pos = Decl(pos);
         } else {
@@ -418,6 +386,6 @@ int main(){
     }*/
     END = words_len;
     CompUnit(1);
-    if (Error) return 1;
+    if (Error) return 0;
     return 0;
 }
