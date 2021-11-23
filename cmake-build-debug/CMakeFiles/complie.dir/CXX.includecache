@@ -6,7 +6,7 @@
 
 #IncludeRegexTransform: 
 
-D:/complie/compiler/getword.h
+D:/compile/compile/getword.h
 cstdio
 -
 cstdlib
@@ -20,7 +20,7 @@ queue
 string
 -
 
-D:/complie/compiler/main.cpp
+D:/compile/compile/main.cpp
 cstdio
 -
 cstdlib
@@ -32,11 +32,11 @@ cctype
 cmath
 -
 getword.h
-D:/complie/compiler/getword.h
+D:/compile/compile/getword.h
 symbol_table.h
-D:/complie/compiler/symbol_table.h
+D:/compile/compile/symbol_table.h
 
-D:/complie/compiler/symbol_table.h
+D:/compile/compile/symbol_table.h
 cstdio
 -
 cstdlib
