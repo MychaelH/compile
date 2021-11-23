@@ -21,6 +21,8 @@ string
 -
 
 D:/compile/compile/main.cpp
+iostream
+-
 cstdio
 -
 cstdlib

@@ -1,3 +1,4 @@
+#include<iostream>
 #include<cstdio>
 #include<cstdlib>
 #include<cstring>
@@ -44,7 +45,7 @@ bool pre_work(){   //将表达式标准化并检查语法正确性
                 flag = exps0[i + 1].id == 20 ? flag : -flag;
                 i++;
             }
-            if (i == 1 || exps0[i - 1].id == 14){
+            if (!exp_n || expr[exp_n].id == 14){
                 expr[++exp_n] = node(2,0,0);
             }
             expr[++exp_n] = flag == 1 ? node(20) : node(21);
@@ -167,6 +168,11 @@ int Exp(int head){        //表达式求值
     }
     if (words[pos].id == 100) {Error = true; puts("Error at Exp 1"); return END;}
     if (!pre_work()) {Error = true; puts("Error at Exp 2"); return END;}
+    /*for (int i = 1; i <= exp_n; i++){
+        if (expr[i].id == 1) printf("%s",expr[i].name);
+        else if (expr[i].id == 2) printf("num(%lld)",expr[i].num);
+        else printf("[%d]",expr[i].id);
+    }*/
     if (!cal_exp()) {Error = true; puts("Error at Exp 3"); return END;}
     return pos;
 }
@@ -397,7 +403,7 @@ int CompUnit(int head){
 }
 
 int main(){
-    //freopen("in.txt","r",stdin);
+    freopen("in.txt","r",stdin);
     //freopen("out.txt","w",stdout);
     get_sym();
     /*for (int i = 1; i <= words_len; i++){
