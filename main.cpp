@@ -31,7 +31,7 @@ bool is_not_exp_end(node& u,int& Par) {
     if (Par < 0) return false;
     return true;
 }
-
+/*
 bool pre_work(){   //将表达式标准化并检查语法正确性
     exp_n = 0;
     int Par = 0;
@@ -46,7 +46,7 @@ bool pre_work(){   //将表达式标准化并检查语法正确性
             if (i == exp0_n || exps0[i + 1].id == 15) return false;
         }
         else if (exps0[i].id == 22 || exps0[i].id == 23 || exps0[i].id == 24){
-            if (i == 1 || (exps0[i - 1].id != 2 && exps0[i - 1].id != 1) || i == exp0_n || exps0[i + 1].id == 15){
+            if (i == exp0_n || exps0[i + 1].id == 15){
                 puts("pre_work ErrA");
                 return false;
             }
@@ -60,20 +60,23 @@ bool pre_work(){   //将表达式标准化并检查语法正确性
     }
     if (Par != 0) return false;
     return true;
-}
+}*/
 
 LL s_num[max_n];   //数字栈
 int s_tag[max_n],s_opt[max_n],s_opt_type[max_n],top_num,top_opt;  //数字标识栈,符号栈
 
 
-void put_top_num(int d){
-    if (s_tag[top_num - d] == 0) printf("%lld",s_num[top_num - d]);
-    else if (s_tag[top_num - d] == 1) {
-        printf("%%%lld",s_num[top_num - d]);
+bool put_top_num(int d){
+    int t = top_num - d;
+    if (t < 1) return false;
+    if (s_tag[t] == 0) printf("%lld",s_num[t]);
+    else if (s_tag[t] == 1) {
+        printf("%%%lld",s_num[t]);
     }
+    return true;
 }
 
-void exp_stack_pop(){  //弹出栈顶运算符号并运算
+bool exp_stack_pop(){  //弹出栈顶运算符号并运算
     opt_id_cnt++;
     out_put_tabs();
     printf("%%%d = ",opt_id_cnt);
@@ -81,16 +84,16 @@ void exp_stack_pop(){  //弹出栈顶运算符号并运算
         switch(s_opt[top_opt]) {
             case 20:printf("add");break;
             case 21:printf("sub");break;
-            default:break;
+            default:Error = true;printf("Err at exp_stack_pop");return false;
         }
         printf(" i32 0, ");
-        put_top_num(0);
+        if (!put_top_num(0)) {Error = true;printf("Err at exp_stack_pop");return false;}
         printf("\n");
         top_num--;
         top_opt--;
         s_num[++top_num] = opt_id_cnt;
         s_tag[top_num] = 1;
-        return;
+        return true;
     }
     switch(s_opt[top_opt]) {
         case 20:printf("add");break;
@@ -98,17 +101,18 @@ void exp_stack_pop(){  //弹出栈顶运算符号并运算
         case 22:printf("mul");break;
         case 23:printf("sdiv");break;
         case 24:printf("srem");break;
-        default:break;
+        default:Error = true;printf("Err at exp_stack_pop");return false;
     }
     printf(" i32 ");
-    put_top_num(1);
+    if (!put_top_num(1)) {Error = true;printf("Err at exp_stack_pop");return false;}
     printf(", ");
-    put_top_num(0);
+    if (!put_top_num(0)) {Error = true;printf("Err at exp_stack_pop");return false;}
     top_num -= 2;
     printf("\n");
     s_num[++top_num] = opt_id_cnt;
     s_tag[top_num] = 1;
     top_opt--;
+    return true;
 }
 
 int opt_cmp_chart[][5]={
@@ -144,18 +148,18 @@ bool cal_exp(){   //前缀表达式双栈求值
         }
         else if (expr[i].id == 15){   //)
             while (s_opt[top_opt] != 14){  //弹出符号直至(
-                exp_stack_pop();
+                if (!exp_stack_pop()) return false;
             }
             top_opt--;
         }
         else if (expr[i].id >= 20 && expr[i].id <= 24){  //opt
-            if (expr[i - 1].id >= 20 && expr[i - 1].id <= 24){
+            if ((expr[i - 1].id >= 20 && expr[i - 1].id <= 24) || expr[i - 1].id == 14){
                 s_opt[++top_opt] = expr[i].id;
                 s_opt_type[top_opt] = 1;
             }
             else {
-                while (top_opt > 0 && s_opt[top_opt] != 14 && s_opt_type[top_opt] != 1 && opt_cmp(s_opt[top_opt], expr[i].id)) {
-                    exp_stack_pop();
+                while (top_opt > 0 && (s_opt_type[top_opt] == 1 || s_opt[top_opt] != 14 && opt_cmp(s_opt[top_opt], expr[i].id))) {
+                    if (!exp_stack_pop()) return false;
                 }
                 s_opt[++top_opt] = expr[i].id;
                 s_opt_type[top_opt] = 0;
@@ -163,24 +167,19 @@ bool cal_exp(){   //前缀表达式双栈求值
         }
     }
     while (top_opt){
-        exp_stack_pop();
+        if (!exp_stack_pop()) return false;
     }
     return true;
 }
 
 int Exp(int head){        //表达式求值
     int pos = head,Par = 0;
-    exp0_n = 0;
+    exp_n = 0;
     while (is_not_exp_end(words[pos],Par)){
-        exps0[++exp0_n] = words[pos++];
+        expr[++exp_n] = words[pos++];
     }
     if (words[pos].id == 100) {Error = true; puts("Error at Exp 1"); return END;}
-    if (!pre_work()) {Error = true; puts("Error at Exp 2"); return END;}
-    /*for (int i = 1; i <= exp_n; i++){
-        if (expr[i].id == 1) printf("%s",expr[i].name);
-        else if (expr[i].id == 2) printf("num(%lld)",expr[i].num);
-        else printf("[%d]",expr[i].id);
-    }*/
+    //if (!pre_work()) {Error = true; puts("Error at Exp 2"); return END;}
     if (!cal_exp()) {Error = true; puts("Error at Exp 3"); return END;}
     return pos;
 }
@@ -326,7 +325,7 @@ int Stmt(int head){
 int BlockItem(int head){
     int pos = head;
     while (words[pos].id != 17 && !Error) {   //遇到{退出
-        if (words[pos].id == 11 || words[pos].id == 9) {  //const  int
+        if (words[pos].id == 11 || words[pos].id == 9) {  //const ||  int
             pos = Decl(pos);
         } else {
             pos = Stmt(pos);
@@ -411,7 +410,7 @@ int CompUnit(int head){
 }
 
 int main(){
-    //freopen("in.txt","r",stdin);
+    freopen("in.txt","r",stdin);
     //freopen("out.txt","w",stdout);
     get_sym();
     /*for (int i = 1; i <= words_len; i++){

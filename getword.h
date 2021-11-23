@@ -152,7 +152,7 @@ void work(){
         c_get = get_char();
         return;
     }
-    if (isalpha(c_get)){
+    if (isalpha(c_get) || c_get == '_'){
         ti = 0;
         while (isalpha(c_get) || isdigit(c_get) || c_get == '_'){
             Token[ti++] = c_get;
