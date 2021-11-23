@@ -7,11 +7,8 @@
 #include "getword.h"
 #include "symbol_table.h"
 #define LL long long int
-#define REP(i,n) for (int i = 1; i <= (n); i++)
-#define Redge(u) for (int k = h[u],to; k; k = ed[k].nxt)
-#define cls(s,v) memset(s,v,sizeof(s))
 using namespace std;
-const int maxn = 100005;
+const int max_n = 100005;
 
 
 int END;
@@ -19,7 +16,7 @@ int END;
 bool Error = false;
 int opt_id_cnt = 0;
 
-node exps0[maxn],expr[maxn];
+node exps0[max_n],expr[max_n];
 int exp_n,exp0_n;
 
 void out_put_tabs(){
@@ -39,36 +36,25 @@ bool pre_work(){   //将表达式标准化并检查语法正确性
     exp_n = 0;
     int Par = 0;
     for (int i = 1; i <= exp0_n; i++){
-        if (exps0[i].id == 20 || exps0[i].id == 21){   //正负相消
-            int flag = exps0[i].id == 20 ? 1 : -1;
-            while (i + 1 <= exp0_n && (exps0[i + 1].id == 20 || exps0[i + 1].id == 21)){
-                flag = exps0[i + 1].id == 20 ? flag : -flag;
-                i++;
-            }
-            if (!exp_n || expr[exp_n].id == 14){
-                expr[++exp_n] = node(2,0,0);
-            }
-            expr[++exp_n] = flag == 1 ? node(20) : node(21);
+        expr[++exp_n] = exps0[i];
+        if (exps0[i].id == 14) Par++;  //括号匹配
+        else if (exps0[i].id == 15){
+            Par--;
+            if (Par < 0) return false;
+        }
+        else if (exps0[i].id == 20 || exps0[i].id == 21){
             if (i == exp0_n || exps0[i + 1].id == 15) return false;
         }
-        else {
-            expr[++exp_n] = exps0[i];
-            if (exps0[i].id == 14) Par++;  //括号匹配
-            else if (exps0[i].id == 15){
-                Par--;
-                if (Par < 0) return false;
+        else if (exps0[i].id == 22 || exps0[i].id == 23 || exps0[i].id == 24){
+            if (i == 1 || (exps0[i - 1].id != 2 && exps0[i - 1].id != 1) || i == exp0_n || exps0[i + 1].id == 15){
+                puts("pre_work ErrA");
+                return false;
             }
-            else if (exps0[i].id == 22 || exps0[i].id == 23 || exps0[i].id == 24){
-                if (i == 1 || (exps0[i - 1].id != 2 && exps0[i - 1].id != 1) || i == exp0_n || exps0[i + 1].id == 15){
-                    puts("pre_work ErrA");
-                    return false;
-                }
-            }
-            else if (exps0[i].id == 1 || exps0[i].id == 2){
-                if (i > 1 && (exps0[i - 1].id == 1 || exps0[i - 1].id == 2)){
-                    puts("pre_work ErrB");
-                    return false;
-                }
+        }
+        else if (exps0[i].id == 1 || exps0[i].id == 2){
+            if (i > 1 && (exps0[i - 1].id == 1 || exps0[i - 1].id == 2)){
+                puts("pre_work ErrB");
+                return false;
             }
         }
     }
@@ -76,9 +62,9 @@ bool pre_work(){   //将表达式标准化并检查语法正确性
     return true;
 }
 
-LL s_num[maxn];   //数字栈
-int s_tag[maxn],s_opt[maxn],top_num,top_opt;  //数字标识栈,符号栈
-char num1[100],num2[100];
+LL s_num[max_n];   //数字栈
+int s_tag[max_n],s_opt[max_n],s_opt_type[max_n],top_num,top_opt;  //数字标识栈,符号栈
+
 
 void put_top_num(int d){
     if (s_tag[top_num - d] == 0) printf("%lld",s_num[top_num - d]);
@@ -91,6 +77,21 @@ void exp_stack_pop(){  //弹出栈顶运算符号并运算
     opt_id_cnt++;
     out_put_tabs();
     printf("%%%d = ",opt_id_cnt);
+    if (s_opt_type[top_opt]){  //如果是单目运算符，弹出一个
+        switch(s_opt[top_opt]) {
+            case 20:printf("add");break;
+            case 21:printf("sub");break;
+            default:break;
+        }
+        printf(" i32 0, ");
+        put_top_num(0);
+        printf("\n");
+        top_num--;
+        top_opt--;
+        s_num[++top_num] = opt_id_cnt;
+        s_tag[top_num] = 1;
+        return;
+    }
     switch(s_opt[top_opt]) {
         case 20:printf("add");break;
         case 21:printf("sub");break;
@@ -100,7 +101,6 @@ void exp_stack_pop(){  //弹出栈顶运算符号并运算
         default:break;
     }
     printf(" i32 ");
-    num1[0] = num2[0] = '\0';
     put_top_num(1);
     printf(", ");
     put_top_num(0);
@@ -140,6 +140,7 @@ bool cal_exp(){   //前缀表达式双栈求值
         }
         else if (expr[i].id == 14){   //(
             s_opt[++top_opt] = 14;
+            s_opt_type[top_opt] = 0;
         }
         else if (expr[i].id == 15){   //)
             while (s_opt[top_opt] != 14){  //弹出符号直至(
@@ -148,10 +149,17 @@ bool cal_exp(){   //前缀表达式双栈求值
             top_opt--;
         }
         else if (expr[i].id >= 20 && expr[i].id <= 24){  //opt
-            while (top_opt > 0 && s_opt[top_opt] != 14 && opt_cmp(s_opt[top_opt],expr[i].id)){
-                exp_stack_pop();
+            if (expr[i - 1].id >= 20 && expr[i - 1].id <= 24){
+                s_opt[++top_opt] = expr[i].id;
+                s_opt_type[top_opt] = 1;
             }
-            s_opt[++top_opt] = expr[i].id;
+            else {
+                while (top_opt > 0 && s_opt[top_opt] != 14 && s_opt_type[top_opt] != 1 && opt_cmp(s_opt[top_opt], expr[i].id)) {
+                    exp_stack_pop();
+                }
+                s_opt[++top_opt] = expr[i].id;
+                s_opt_type[top_opt] = 0;
+            }
         }
     }
     while (top_opt){
