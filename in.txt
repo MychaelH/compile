@@ -1,0 +1,5 @@
+int main(){
+    int a = 2 * 3 / (4 % 3 + 1),b;
+    b = 7 * a * a * a - 5;
+	return b;
+}

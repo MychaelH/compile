@@ -1,0 +1,3 @@
+"D:\CL\CLion 2021.2.3\bin\cmake\win\bin\cmake.exe" -E rm -f CMakeFiles\complie.dir/objects.a
+D:\mingw64\bin\ar.exe cr CMakeFiles\complie.dir/objects.a @CMakeFiles\complie.dir\objects1.rsp
+D:\mingw64\bin\g++.exe -g -Wl,--whole-archive CMakeFiles\complie.dir/objects.a -Wl,--no-whole-archive -o complie.exe -Wl,--out-implib,libcomplie.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\complie.dir\linklibs.rsp

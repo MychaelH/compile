@@ -1,0 +1,89 @@
+#include<cstdio>
+#include<cstdlib>
+#include<cstring>
+#include<cctype>
+#include<cmath>
+#define LL long long int
+#define REP(i,n) for (int i = 1; i <= (n); i++)
+#define Redge(u) for (int k = h[u],to; k; k = ed[k].nxt)
+#define cls(s,v) memset(s,v,sizeof(s))
+#define ULL unsigned long long int
+using namespace std;
+
+const int P = 100007;
+
+int Space_cnt = 0; //环境总数
+int Space = 0;   //当前环境编号
+int Space_pre[P]; //父亲环境
+int layer_cnt = 0;
+
+struct symbol{
+    const char* name;   //变量名
+    int space;   //作用域
+    int id;		//IR变量编号
+    bool is_const;  //是否常数
+}Ident[100005];
+
+int symbol_siz = 0;
+
+struct s_node{
+    symbol* u;
+    s_node* next;
+};
+
+s_node* table_head[100010] = {nullptr};
+
+int get_code(const char* s){
+    ULL x = 0;
+    for (int i = 0; s[i] != '\0'; i++){
+        x = x * 37 + s[i];
+    }
+    return (int)(x % P);
+}
+
+
+symbol* sym_getIdent(const char* name,int space){
+    int code = get_code(name);
+    s_node* u = table_head[code];
+    int t_space = space;
+    while (true) {
+        while (u != nullptr && (strcmp(name, u->u->name) != 0 || u->u->space != space)) {
+            u = u->next;
+        }
+        if (u != nullptr) return u->u;
+        if (!t_space) break;
+        t_space = Space_pre[t_space];
+    }
+    return nullptr;
+}
+
+bool sym_insert(const char* name,int space,int id,bool is_const){
+    symbol* t = sym_getIdent(name,space);
+    if (t != nullptr && t->space == space) return false;
+    int code = get_code(name);
+    Ident[++symbol_siz] = (symbol){name,space,id,is_const};
+    auto* v = new s_node;
+    v->u = &Ident[symbol_siz]; v->next = nullptr;
+    if (table_head[code] == nullptr){
+        table_head[code] = v;
+        return true;
+    }
+    s_node* u = table_head[code];
+    while (u->next != nullptr) u = u->next;
+    u->next = v;
+    return true;
+}
+
+bool sym_modify(const char* name,int space,int id){
+    symbol *u = sym_getIdent(name,space);
+    if (u->is_const) return false;
+    u->id = id;
+    return true;
+}
+
+
+
+
+
+
+
