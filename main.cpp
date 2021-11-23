@@ -153,7 +153,7 @@ bool cal_exp(){   //前缀表达式双栈求值
             top_opt--;
         }
         else if (expr[i].id >= 20 && expr[i].id <= 24){  //opt
-            if ((expr[i - 1].id >= 20 && expr[i - 1].id <= 24) || expr[i - 1].id == 14){
+            if (i <= 1 || (expr[i - 1].id >= 20 && expr[i - 1].id <= 24) || expr[i - 1].id == 14){
                 s_opt[++top_opt] = expr[i].id;
                 s_opt_type[top_opt] = 1;
             }
