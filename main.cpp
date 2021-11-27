@@ -200,7 +200,7 @@ int Exp(int head,LL& re_id,int& re_type){        //表达式求值
     while (!s_opt.empty()){
         if (!exp_stack_pop(s_num,s_tag,s_opt,s_opt_type)) {Error = true; return END;}
     }
-    if (s_num.empty()) {Error = true; puts("Empty exp!"); return END;}
+    if (s_num.size() != 1) {Error = true; puts("Empty exp!"); return END;}
     re_id = s_num.top();
     re_type = s_tag.top();
     return pos;
@@ -535,11 +535,11 @@ int CompUnit(int head){
 int main(){
     //freopen("in.txt","r",stdin);
     //freopen("out.txt","w",stdout);
-    printf("declare void @putch(i32)\ndefine i32 @main(){\n");
+    //printf("declare void @putch(i32)\ndefine i32 @main(){\n");
     get_sym();
-    printf("}\n");
+    //printf("}\n");
     END = words_len;
-    //CompUnit(1);
+    CompUnit(1);
     if (Error) return 1;
     return 0;
 }

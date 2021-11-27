@@ -1,6 +1,6 @@
 int main() {
 ;;
-    int adfasdf = 1;
+    int adfasdf = 1getint();
     getint();
     int asdfasdfs = getint();;
     int b = getint();
