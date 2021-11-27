@@ -1,9 +1,10 @@
 int main() {
-    int a,b,c,d;
-    a = getint();
-    b = getint();
-    c = a + b;
-    d = c * getint() - 1;
-    putint(d);
+;;
+    int adfasdf = putint();
+    getint();
+    int asdfasdfs;
+    1+1;
+    putint(1 *   9 * (5 - 9));
+    putint(getint());
     return 0;
 }

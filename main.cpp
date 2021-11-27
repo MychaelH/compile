@@ -265,6 +265,7 @@ int VarDef(int head){          //变量声明
             LL re_id;
             int re_type;
             pos = Exp(pos + 1,re_id,re_type); //@
+            if (Error) return END;
             var_modify(ident_id,re_id,re_type);   //@
         }
     }
@@ -284,6 +285,7 @@ int VarDecl(int head){      //变量声明
     pos = VarDef(pos);
     while (words[pos].id == 28){ //,
         pos = VarDef(pos + 1);
+        if (Error) return END;
     }
     if (words[pos].id != 13) {Error = true; return END;} //;
     pos++;
@@ -536,6 +538,6 @@ int main(){
     get_sym();
     END = words_len;
     CompUnit(1);
-    if (Error) return 0;
+    if (Error) return 1;
     return 0;
 }
