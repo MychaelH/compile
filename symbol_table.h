@@ -35,7 +35,7 @@ struct symbol{
     func_params *params;
     symbol(){}
     symbol(const char* name, int space, int id, bool is_const, bool is_func, int re_type, func_params* params){
-        this->name = new char[sizeof(char) * (strlen(name) + 200)];
+        this->name = new char[sizeof(char) * (strlen(name) + 3)];
         strcpy(this->name,name);
         this->space = space;
         this->id = id;
@@ -68,8 +68,10 @@ symbol* sym_getIdent(const char* name,int space){
     int code = get_code(name);
     int t_space = space;
     while (true) {
+        //puts("finding");
         s_node* u = table_head[code];
         while (u != nullptr && (strcmp(name, u->u->name) != 0 || u->u->space != t_space)) {
+            //puts("next");
             u = u->next;
         }
         if (u != nullptr) return u->u;

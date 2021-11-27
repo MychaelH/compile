@@ -90,7 +90,6 @@ bool opt_cmp(int opt_a,int opt_b){
     return opt_cmp_chart[opt_a - 20][opt_b - 20];
 }
 
-
 int Exp(int head,LL& re_id,int& re_type){        //表达式求值
     int pos = head,Par = 0,i = 0;
     stack<LL> s_num;
@@ -325,6 +324,7 @@ int Voidfun(int head){
     int pos = head;
     if (words[pos].id != 1) {Error = true; return END;}
     symbol* p = sym_getIdent(words[pos].name,Space);
+    if (p == nullptr) {Error = true; puts("void fun Ident not found"); return END;}
     if (words[++pos].id != 14) {Error = true; return END;} //(
     func_params *u = p->params;
     bool first = true;
@@ -401,8 +401,9 @@ int Stmt(int head){
         LL re_id;
         int re_type;
         pos = Exp(pos + 2,re_id,re_type); //@
+        //printf("%lld\n",words[pos].id);
         var_modify(ident_id,re_id,re_type);   //@
-        if (words[pos].id != 13) {Error = true; puts("Error at Stmt 3"); return END;}
+        if (words[pos].id != 13) {Error = true; puts("Error at Stmt 3"); return END;} //;
         pos++;
     }
     //;
@@ -413,6 +414,7 @@ int Stmt(int head){
     else {
         if (words[pos].id == 1){
             symbol *p = sym_getIdent(words[pos].name,Space);
+            if (p == nullptr) {Error = true; puts("stmt Ident not found"); return END;}
             if (p->is_func && p->re_type == 0){
                 pos = Voidfun(pos);
                 if (words[pos].id != 13) {Error = true; puts("Error at Stmt 4"); return END;}
@@ -423,6 +425,7 @@ int Stmt(int head){
         LL re_id;
         int re_type;
         pos = Exp(pos,re_id,re_type);
+        if (Error) return END;
         if (words[pos].id != 13) {Error = true; puts("Error at Stmt 4"); return END;}
         pos++;
     }

@@ -1,5 +1,9 @@
 int main() {
-    int a = getint();
-    putint();
+    int a,b,c,d;
+    a = getint();
+    b = getint();
+    c = a + b;
+    d = c * getint() - 1;
+    putint(d);
     return 0;
 }
