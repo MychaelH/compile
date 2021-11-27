@@ -35,7 +35,7 @@ struct symbol{
     func_params *params;
     symbol(){}
     symbol(const char* name, int space, int id, bool is_const, bool is_func, int re_type, func_params* params){
-        this->name = new char[sizeof(char) * (strlen(name) + 3)];
+        this->name = new char[sizeof(char) * (strlen(name) + 200)];
         strcpy(this->name,name);
         this->space = space;
         this->id = id;
