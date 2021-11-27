@@ -1,17 +1,11 @@
 #include<iostream>
 #include<cstdio>
-#include<cstdlib>
-#include<cstring>
-#include<cctype>
-#include<cmath>
 #include<stack>
-#include<vector>
 #include<queue>
 #include "getword.h"
 #include "symbol_table.h"
 #define LL long long int
 using namespace std;
-const int max_n = 100005;
 
 
 int END;
@@ -23,16 +17,6 @@ void out_put_tabs(){
     for (int i = 1; i <= layer_cnt; i++) printf("\t");
 }
 
-//num ident +-*/%()
-bool is_not_exp_end(node& u,int& Par) {
-    if (u.id == 14) Par++;
-    if (u.id != 15) return u.id == 1 || u.id == 2 || (u.id >= 20 && u.id <= 24) || u.id == 14;
-    Par--;
-    if (Par < 0) return false;
-    return true;
-}
-
-
 
 bool put_top_num(stack<LL>& s_num,stack<int>& s_tag,int d){
     if (s_num.size() - d < 1) return false;
@@ -43,7 +27,8 @@ bool put_top_num(stack<LL>& s_num,stack<int>& s_tag,int d){
         }
     }
     else if (d == 1){
-        LL t_num = s_num.top(),t_tag = s_tag.top();
+        LL t_num = s_num.top();
+        int t_tag = s_tag.top();
         s_num.pop(); s_tag.pop();
         if (s_tag.top() == 0) printf("%lld", s_num.top());
         else if (s_tag.top() == 1) {
@@ -476,6 +461,7 @@ int Block(int head){
 }
 
 int FuncFParams(int head){    //参数列表
+    int pos = head;
 
     return 0;
 }
@@ -522,7 +508,7 @@ int CompUnit(int head){
     printf("declare i32 @getint()\n");
     sym_insert("getch",0,0,false,true,1);
     printf("declare i32 @getch()\n");
-    func_params *p = new func_params();
+    auto *p = new func_params();
     sym_insert("putint",0,0,false,true,0,p);
     printf("declare void @putint(i32)\n");
     sym_insert("putch",0,0,false,true,0,p);
@@ -538,6 +524,7 @@ int CompUnit(int head){
         else if (words[pos].id == 100) return pos;
         else {Error = true; return END;}
     }
+    return pos;
 }
 
 int main(){
@@ -548,7 +535,7 @@ int main(){
         printf("%d ",words[i].id);
     }*/
     END = words_len;
-    CompUnit(1);
-    if (Error) return 0;
+    //CompUnit(1);
+    //if (Error) return 0;
     return 0;
 }

@@ -230,7 +230,7 @@ void get_in(){
     c_get = getchar();
     while (c_get != EOF){
         text[++L] = c_get;
-        //putchar(c_get);
+        putchar(c_get);
         c_get = getchar();
     }
 }

@@ -33,6 +33,12 @@ cctype
 -
 cmath
 -
+stack
+-
+vector
+-
+queue
+-
 getword.h
 D:/compile/compile/getword.h
 symbol_table.h
