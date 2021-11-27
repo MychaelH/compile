@@ -4,6 +4,9 @@
 #include<cstring>
 #include<cctype>
 #include<cmath>
+#include<stack>
+#include<vector>
+#include<queue>
 #include "getword.h"
 #include "symbol_table.h"
 #define LL long long int
@@ -29,40 +32,47 @@ bool is_not_exp_end(node& u,int& Par) {
     return true;
 }
 
-LL s_num[max_n];   //数字栈
-int s_tag[max_n],s_opt[max_n],s_opt_type[max_n],top_num,top_opt;  //数字标识栈,符号栈
 
 
-bool put_top_num(int d){
-    int t = top_num - d;
-    if (t < 1) return false;
-    if (s_tag[t] == 0) printf("%lld",s_num[t]);
-    else if (s_tag[t] == 1) {
-        printf("%%%lld",s_num[t]);
+bool put_top_num(stack<LL>& s_num,stack<int>& s_tag,int d){
+    if (s_num.size() - d < 1) return false;
+    if (!d) {
+        if (s_tag.top() == 0) printf("%lld", s_num.top());
+        else if (s_tag.top() == 1) {
+            printf("%%%lld", s_num.top());
+        }
+    }
+    else if (d == 1){
+        LL t_num = s_num.top(),t_tag = s_tag.top();
+        s_num.pop(); s_tag.pop();
+        if (s_tag.top() == 0) printf("%lld", s_num.top());
+        else if (s_tag.top() == 1) {
+            printf("%%%lld", s_num.top());
+        }
+        s_num.push(t_num); s_tag.push(t_tag);
     }
     return true;
 }
 
-bool exp_stack_pop(){  //弹出栈顶运算符号并运算
+bool exp_stack_pop(stack<LL>& s_num,stack<int>& s_tag,stack<int>& s_opt,stack<int>& s_opt_type){  //弹出栈顶运算符号并运算
     opt_id_cnt++;
-    out_put_tabs();
-    printf("%%%d = ",opt_id_cnt);
-    if (s_opt_type[top_opt]){  //如果是单目运算符，弹出一个
-        switch(s_opt[top_opt]) {
+    printf("\t%%%d = ",opt_id_cnt);
+    if (s_opt_type.top()){  //如果是单目运算符，弹出一个
+        switch(s_opt.top()) {
             case 20:printf("add");break;
             case 21:printf("sub");break;
             default:Error = true;printf("Err at exp_stack_pop");return false;
         }
         printf(" i32 0, ");
-        if (!put_top_num(0)) {Error = true;printf("Err at exp_stack_pop");return false;}
+        if (!put_top_num(s_num,s_tag,0)) {Error = true;printf("Err at exp_stack_pop");return false;}
         printf("\n");
-        top_num--;
-        top_opt--;
-        s_num[++top_num] = opt_id_cnt;
-        s_tag[top_num] = 1;
+        s_num.pop(); s_tag.pop();
+        s_opt.pop(); s_opt_type.pop();
+        s_num.push(opt_id_cnt);
+        s_tag.push(1);
         return true;
     }
-    switch(s_opt[top_opt]) {
+    switch(s_opt.top()) {
         case 20:printf("add");break;
         case 21:printf("sub");break;
         case 22:printf("mul");break;
@@ -71,14 +81,15 @@ bool exp_stack_pop(){  //弹出栈顶运算符号并运算
         default:Error = true;printf("Err at exp_stack_pop");return false;
     }
     printf(" i32 ");
-    if (!put_top_num(1)) {Error = true;printf("Err at exp_stack_pop");return false;}
+    if (!put_top_num(s_num,s_tag,1)) {Error = true;printf("Err at exp_stack_pop");return false;}
     printf(", ");
-    if (!put_top_num(0)) {Error = true;printf("Err at exp_stack_pop");return false;}
-    top_num -= 2;
+    if (!put_top_num(s_num,s_tag,0)) {Error = true;printf("Err at exp_stack_pop");return false;}
+    s_num.pop(); s_tag.pop();
+    s_num.pop(); s_tag.pop();
     printf("\n");
-    s_num[++top_num] = opt_id_cnt;
-    s_tag[top_num] = 1;
-    top_opt--;
+    s_num.push(opt_id_cnt);
+    s_tag.push(1);
+    s_opt.pop(); s_opt_type.pop();
     return true;
 }
 
@@ -95,61 +106,125 @@ bool opt_cmp(int opt_a,int opt_b){
 }
 
 
-int Exp(int head){        //表达式求值
+int Exp(int head,LL& re_id,int& re_type){        //表达式求值
     int pos = head,Par = 0,i = 0;
-    top_num = 0; top_opt = 0;
+    stack<LL> s_num;
+    stack<int> s_tag,s_opt,s_opt_type;
     while (true){
         i++;
         if (words[pos].id == 1){        //Ident
             symbol* p = sym_getIdent(words[pos].name,Space);
-            if (p == nullptr) return false;
-            out_put_tabs();
-            printf("%%%d = load i32, i32* %%%d\n",++opt_id_cnt,p->id);
-            s_num[++top_num] = opt_id_cnt;
-            s_tag[top_num] = 1;
+            if (p == nullptr) {Error = true; puts("Exp Ident not found"); return END;}
+            if (!p->is_func) {
+                printf("\t%%%d = load i32, i32* %%%d\n", ++opt_id_cnt, p->id);
+                s_num.push(opt_id_cnt);
+                s_tag.push(1);
+            }
+            else {            //function
+                if (p->re_type == 0) {Error = true; return END;}
+                if (words[++pos].id != 14) {Error = true; return END;} //(
+                func_params *u = p->params;
+                bool first = true;
+                queue<LL> param_id;
+                queue<int> param_type;
+                pos++;
+                while (u != nullptr){
+                    if (first) first = false;
+                    else if (words[pos++].id != 28) {Error = true; return END;} //,
+                    if (u->type == 0) {   //如果是传值
+                        LL re_id_param;
+                        int re_type_param;
+                        pos = Exp(pos, re_id_param, re_type_param);
+                        param_id.push(re_id_param);
+                        param_type.push(re_type_param);
+                    }
+                    else if (u->type == 1){ //如果是传指针
+                        if (words[pos].id != 1){Error = true; return END;}
+                        symbol* param_i = sym_getIdent(words[pos].name,Space);
+                        if (param_i == nullptr) {Error = true; return END;}
+                        if (param_i->is_func) {Error = true; return END;}
+                        if (param_i->is_const) {Error = true; return END;}
+                        //找到合法的变量
+                        param_id.push(param_i->id);
+                        param_type.push(2);
+                        pos++;
+                    }
+                    else {Error = true; return END;}
+                    u = u->next;
+                }
+                if (words[pos].id != 15) {Error = true; return END;} //)
+                //@load func
+                printf("\t%%%d = call i32 @%s(", ++opt_id_cnt, p->name);
+                first = true;
+                while (!param_id.empty()){
+                    LL p_id = param_id.front(); param_id.pop();
+                    int p_type = param_type.front(); param_type.pop();
+                    if (first) first = false;
+                    else {
+                        printf(", ");
+                    }
+                    if (p_type == 2){
+                        printf("i32* %%%lld",p_id);
+                    }
+                    else if (p_type == 1){
+                        printf("i32 %%%lld",p_id);
+                    }
+                    else if (p_type == 0){
+                        printf("i32 %lld",p_id);
+                    }
+                    else {Error = true; return END;}
+                }
+                printf(")\n");
+                s_num.push(opt_id_cnt);
+                s_tag.push(1);
+            }
         }
         else if (words[pos].id == 2){   //num
-            s_num[++top_num] = words[pos].num;
-            s_tag[top_num] = 0;
+            s_num.push(words[pos].num);
+            s_tag.push(0);
         }
         else if (words[pos].id == 14){   //(
-            s_opt[++top_opt] = 14;
-            s_opt_type[top_opt] = 0;
+            s_opt.push(14);
+            s_opt_type.push(0);
             Par++;
         }
         else if (words[pos].id == 15){   //)
             Par--;
             if (Par < 0) break;
-            while (s_opt[top_opt] != 14){  //弹出符号直至(
-                if (!exp_stack_pop()) return false;
+            while (s_opt.top() != 14){  //弹出符号直至(
+                if (!exp_stack_pop(s_num,s_tag,s_opt,s_opt_type)) return false;
             }
-            top_opt--;
+            s_opt.pop();
+            s_opt_type.pop();
         }
         else if (words[pos].id >= 20 && words[pos].id <= 24){  //opt
             if (i <= 1 || (words[pos - 1].id >= 20 && words[pos - 1].id <= 24) || words[pos - 1].id == 14){
-                s_opt[++top_opt] = words[pos].id;
-                s_opt_type[top_opt] = 1;
+                s_opt.push(words[pos].id);
+                s_opt_type.push(1);
             }
             else {
-                while (top_opt > 0 && (s_opt_type[top_opt] == 1 || s_opt[top_opt] != 14 && opt_cmp(s_opt[top_opt], words[pos].id))) {
-                    if (!exp_stack_pop()) return false;
+                while (!s_opt.empty() && (s_opt_type.top() == 1 || s_opt.top() != 14 && opt_cmp(s_opt.top(), words[pos].id))) {
+                    if (!exp_stack_pop(s_num,s_tag,s_opt,s_opt_type)) return false;
                 }
-                s_opt[++top_opt] = words[pos].id;
-                s_opt_type[top_opt] = 0;
+                s_opt.push(words[pos].id);
+                s_opt_type.push(0);
             }
         }
         else break;
         pos++;
     }
-    while (top_opt){
-        if (!exp_stack_pop()) {Error = true; return END;}
+    while (!s_opt.empty()){
+        if (!exp_stack_pop(s_num,s_tag,s_opt,s_opt_type)) {Error = true; return END;}
     }
+    if (s_num.empty()) {Error = true; puts("Empty exp!"); return END;}
+    re_id = s_num.top();
+    re_type = s_tag.top();
     return pos;
 }
 
-int ConstExp(int head){
+int ConstExp(int head,LL& re_id,int& re_type){
     int pos = head;
-    pos = Exp(pos);
+    pos = Exp(pos,re_id,re_type);
     return pos;
 }
 
@@ -160,10 +235,10 @@ int const_declare(int pos){  //@插入常量声明
     return opt_id_cnt;
 }
 
-void const_var_init(int id){  //@插入常量初始化
-    out_put_tabs();
-    if (s_tag[top_num]) printf("store i32 %%%d, i32* %%%d\n",s_num[top_num],id);
-    else printf("store i32 %d, i32* %%%d\n",s_num[top_num],id);
+void const_var_init(int id,const LL& re_id,const int& re_type){  //@插入常量初始化
+    printf("\t");
+    if (re_type) printf("store i32 %%%d, i32* %%%d\n",re_id,id);
+    else printf("store i32 %d, i32* %%%d\n",re_id,id);
 }
 
 int var_declare(int pos){  //@插入变量声明
@@ -173,10 +248,10 @@ int var_declare(int pos){  //@插入变量声明
     return opt_id_cnt;
 }
 
-void var_modify(int id){    //@插入变量修改
+void var_modify(int id,const LL& re_id,const int& re_type){    //@插入变量修改
     out_put_tabs();
-    if (s_tag[top_num]) printf("store i32 %%%d, i32* %%%d\n",s_num[top_num],id);
-    else printf("store i32 %d, i32* %%%d\n",s_num[top_num],id);
+    if (re_type) printf("store i32 %%%d, i32* %%%d\n",re_id,id);
+    else printf("store i32 %d, i32* %%%d\n",re_id,id);
 }
 
 int ConstDef(int head){          //常量声明
@@ -185,8 +260,10 @@ int ConstDef(int head){          //常量声明
         int ident_id = const_declare(pos);    //@
         pos++;
         if (words[pos].id == 12){ //=
-            pos = ConstExp(pos + 1); //@
-            const_var_init(ident_id);   //@
+            LL re_id;
+            int re_type;
+            pos = ConstExp(pos + 1,re_id,re_type); //@
+            const_var_init(ident_id,re_id,re_type);   //@
         }
         else {Error = true; return END;}
     }
@@ -201,11 +278,13 @@ int VarDef(int head){          //变量声明
         if (Error) return END;
         pos++;
         if (words[pos].id == 12){ //=
-            pos = Exp(pos + 1); //@
-            var_modify(ident_id);   //@
+            LL re_id;
+            int re_type;
+            pos = Exp(pos + 1,re_id,re_type); //@
+            var_modify(ident_id,re_id,re_type);   //@
         }
     }
-    else {Error = true; return END;}
+    else {Error = true; printf("VarDef no Ident"); return END;}
     return pos;
 }
 
@@ -251,18 +330,80 @@ int Decl(int head){
     return pos;
 }
 
-void return_value(){   //@return
+void return_value(const LL& re_id,const int& re_type){   //@return
     out_put_tabs();
-    if (s_tag[top_num]) printf("ret i32 %%%d\n",s_num[top_num]);
-    else printf("ret i32 %d\n",s_num[top_num]);
+    if (re_type) printf("ret i32 %%%lld\n",re_id);
+    else printf("ret i32 %lld\n",re_id);
+}
+
+int Voidfun(int head){
+    int pos = head;
+    if (words[pos].id != 1) {Error = true; return END;}
+    symbol* p = sym_getIdent(words[pos].name,Space);
+    if (words[++pos].id != 14) {Error = true; return END;} //(
+    func_params *u = p->params;
+    bool first = true;
+    queue<LL> param_id;
+    queue<int> param_type;
+    pos++;
+    while (u != nullptr){
+        if (first) first = false;
+        else if (words[pos++].id != 28) {Error = true; return END;} //,
+        if (u->type == 0) {   //如果是传值
+            LL re_id_param;
+            int re_type_param;
+            pos = Exp(pos, re_id_param, re_type_param);
+            if (Error) return END;
+            param_id.push(re_id_param);
+            param_type.push(re_type_param);
+        }
+        else if (u->type == 1){ //如果是传指针
+            if (words[pos].id != 1){Error = true; return END;}
+            symbol* param_i = sym_getIdent(words[pos].name,Space);
+            if (param_i == nullptr) {Error = true; return END;}
+            if (param_i->is_func) {Error = true; return END;}
+            if (param_i->is_const) {Error = true; return END;}
+            //找到合法的变量
+            param_id.push(param_i->id);
+            param_type.push(2);
+        }
+        else {Error = true; return END;}
+        u = u->next;
+    }
+    if (words[pos++].id != 15) {Error = true; return END;} //)
+    //@load func
+    printf("\tcall void @%s(", p->name);
+    first = true;
+    while (!param_id.empty()){
+        LL p_id = param_id.front(); param_id.pop();
+        int p_type = param_type.front(); param_type.pop();
+        if (first) first = false;
+        else {
+            printf(", ");
+        }
+        if (p_type == 2){
+            printf("i32* %%%lld",p_id);
+        }
+        else if (p_type == 1){
+            printf("i32 %%%lld",p_id);
+        }
+        else if (p_type == 0){
+            printf("i32 %lld",p_id);
+        }
+        else {Error = true; return END;}
+    }
+    printf(")\n");
+    return pos;
 }
 
 int Stmt(int head){
     int pos = head;
     if (words[pos].id == 8){ //return
-        pos = Exp(pos + 1);
+        LL re_id;
+        int re_type;
+        pos = Exp(pos + 1,re_id,re_type);
         if (words[pos].id != 13) {Error = true; puts("Error at Stmt 1"); return END;}
-        return_value(); //@return
+        return_value(re_id,re_type); //@return
         pos++;
     }
     //赋值
@@ -272,8 +413,10 @@ int Stmt(int head){
         if (p->is_const) {Error = true; puts("Error at Stmt 2.5:modify const"); return END;}
         int ident_id = p->id;
         //printf("%d",words[pos+2].id);
-        pos = Exp(pos + 2); //@
-        var_modify(ident_id);   //@
+        LL re_id;
+        int re_type;
+        pos = Exp(pos + 2,re_id,re_type); //@
+        var_modify(ident_id,re_id,re_type);   //@
         if (words[pos].id != 13) {Error = true; puts("Error at Stmt 3"); return END;}
         pos++;
     }
@@ -283,7 +426,18 @@ int Stmt(int head){
     }
     //Exp
     else {
-        pos = Exp(pos);
+        if (words[pos].id == 1){
+            symbol *p = sym_getIdent(words[pos].name,Space);
+            if (p->is_func && p->re_type == 0){
+                pos = Voidfun(pos);
+                if (words[pos].id != 13) {Error = true; puts("Error at Stmt 4"); return END;}
+                pos++;
+                return pos;
+            }
+        }
+        LL re_id;
+        int re_type;
+        pos = Exp(pos,re_id,re_type);
         if (words[pos].id != 13) {Error = true; puts("Error at Stmt 4"); return END;}
         pos++;
     }
@@ -364,6 +518,15 @@ int FuncDef(int head){
 }
 
 int CompUnit(int head){
+    sym_insert("getint",0,0,false,true,1);
+    printf("declare i32 @getint()\n");
+    sym_insert("getch",0,0,false,true,1);
+    printf("declare i32 @getch()\n");
+    func_params *p = new func_params();
+    sym_insert("putint",0,0,false,true,0,p);
+    printf("declare void @putint(i32)\n");
+    sym_insert("putch",0,0,false,true,0,p);
+    printf("declare void @putch(i32)\n");
     int pos = head;
     while (pos <= words_len){
         if (words[pos].id == 11) pos = Decl(pos);     //const

@@ -1,6 +1,5 @@
 int main() {
-    int sudo = 0;
-    int rm = 5, r = 3, home = 5;
-    sudo = rm -r /home*       0;
-    return rm;
+    int a = getint();
+    putint();
+    return 0;
 }

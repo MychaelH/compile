@@ -82,6 +82,9 @@
 				</MakeCommands>
 			</Target>
 		</Build>
+		<Unit filename="D:/compile/compile/Output_region.h">
+			<Option target="complie"/>
+		</Unit>
 		<Unit filename="D:/compile/compile/getword.h">
 			<Option target="complie"/>
 		</Unit>
