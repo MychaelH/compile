@@ -531,11 +531,8 @@ int main(){
     //freopen("in.txt","r",stdin);
     //freopen("out.txt","w",stdout);
     get_sym();
-    /*for (int i = 1; i <= words_len; i++){
-        printf("%d ",words[i].id);
-    }*/
     END = words_len;
-    //CompUnit(1);
-    //if (Error) return 0;
+    CompUnit(1);
+    if (Error) return 0;
     return 0;
 }

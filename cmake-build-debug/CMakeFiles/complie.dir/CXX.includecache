@@ -25,17 +25,7 @@ iostream
 -
 cstdio
 -
-cstdlib
--
-cstring
--
-cctype
--
-cmath
--
 stack
--
-vector
 -
 queue
 -
