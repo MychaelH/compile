@@ -1,8 +1,11 @@
 int main() {
 ;;
-    int adfasdf = putint();
+    int adfasdf = 1;
     getint();
-    int asdfasdfs;
+    int asdfasdfs = getint();;
+    int b = getint();
+    b = getint() * getint();
+    putint(b * 10 % 5);
     1+1;
     putint(1 *   9 * (5 - 9));
     putint(getint());

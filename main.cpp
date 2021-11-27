@@ -535,9 +535,11 @@ int CompUnit(int head){
 int main(){
     //freopen("in.txt","r",stdin);
     //freopen("out.txt","w",stdout);
+    printf("declare void @putch(i32)\ndefine i32 @main(){\n");
     get_sym();
+    printf("}\n");
     END = words_len;
-    CompUnit(1);
+    //CompUnit(1);
     if (Error) return 1;
     return 0;
 }
