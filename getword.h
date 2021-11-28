@@ -269,7 +269,7 @@ void get_clear(){    //去注释
 
 void sym_init(){
     get_in();
-    //get_clear();
+    get_clear();
 }
 
 void get_sym(){
