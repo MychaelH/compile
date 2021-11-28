@@ -74,7 +74,7 @@ struct node{
     }
     node(int a,const char* t){
         this->id = a;
-        this->name = new char[20];
+        this->name = new char[sizeof(char) * (strlen(t) + 2)];
         strcpy(this->name,t);
     }
 }words[1000005];
@@ -232,7 +232,7 @@ void get_in(){
     c_get = getchar();
     while (c_get != EOF){
         text[++L] = c_get;
-        printf("\tcall void @putch(i32 %d)\n",(int)c_get);
+        //printf("\tcall void @putch(i32 %d)\n",(int)c_get);
         c_get = getchar();
     }
 }
@@ -274,9 +274,9 @@ void sym_init(){
 
 void get_sym(){
     sym_init();
-    /*c_get = get_char();
+    c_get = get_char();
     while (c_get != EOF) work();
-    words[++words_len].id = 100;*/
+    words[++words_len].id = 100;
 }
 
 int now = 0;
