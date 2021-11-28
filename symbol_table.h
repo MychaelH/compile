@@ -1,3 +1,5 @@
+#ifndef SYMBOL_TABLE_H
+#define SYMBOL_TABLE_H
 #include<cstdio>
 #include<cstdlib>
 #include<cstring>
@@ -107,7 +109,7 @@ bool sym_modify(const char* name,int space,int id){
 }
 
 
-
+#endif //SYMBOL_TABLE_H
 
 
 

@@ -1,3 +1,5 @@
+#ifndef GET_WORD_H
+#define GET_WORD_H
 #include<cstdio>
 #include<cstdlib>
 #include<cctype>
@@ -60,13 +62,13 @@ id表：
 //语法输出
 struct node{
     int id;
-    LL num;
+    int num;
     char* name;
     node(){}
     node(int a){
         this->id = a;
     }
-    node(int a,LL b,int c){
+    node(int a, int b, int c){
         this->id = a;
         this->num = b;
     }
@@ -107,7 +109,7 @@ bool is_oct(char ch){
 }
 
 void get_number(){
-    LL num = 0;
+    int num = 0;
     bool flag = true;
     if (c_get == '0'){
         c_get = get_char();
@@ -293,3 +295,5 @@ node get_next(){
 	}
 	return 0;
 } */
+
+#endif //GET_WORD_H

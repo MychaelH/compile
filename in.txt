@@ -1,13 +1,5 @@
 int main() {
-;;
-    int adfasdf = 1getint();
-    getint();
-    int asdfasdfs = getint();;
-    int b = getint();
-    b = getint() * getint();
-    putint(b * 10 % 5);
-    1+1;
-    putint(1 *   9 * (5 - 9));
-    putint(getint());
+    int a = getint(),b = 1---getint();
+    putint(a * b ++++a - ---b);
     return 0;
 }

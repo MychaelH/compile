@@ -4,7 +4,7 @@
 #include<queue>
 #include "getword.h"
 #include "symbol_table.h"
-#define LL long long int
+#define int1 long long int
 using namespace std;
 
 
@@ -18,28 +18,28 @@ void out_put_tabs(){
 }
 
 
-bool put_top_num(stack<LL>& s_num,stack<int>& s_tag,int d){
+bool put_top_num(stack<int>& s_num, stack<int>& s_tag, int d){
     if (s_num.size() - d < 1) return false;
     if (!d) {
-        if (s_tag.top() == 0) printf("%lld", s_num.top());
+        if (s_tag.top() == 0) printf("%d", s_num.top());
         else if (s_tag.top() == 1) {
-            printf("%%%lld", s_num.top());
+            printf("%%%d", s_num.top());
         }
     }
     else if (d == 1){
-        LL t_num = s_num.top();
+        int t_num = s_num.top();
         int t_tag = s_tag.top();
         s_num.pop(); s_tag.pop();
-        if (s_tag.top() == 0) printf("%lld", s_num.top());
+        if (s_tag.top() == 0) printf("%d", s_num.top());
         else if (s_tag.top() == 1) {
-            printf("%%%lld", s_num.top());
+            printf("%%%d", s_num.top());
         }
         s_num.push(t_num); s_tag.push(t_tag);
     }
     return true;
 }
 
-bool exp_stack_pop(stack<LL>& s_num,stack<int>& s_tag,stack<int>& s_opt,stack<int>& s_opt_type){  //弹出栈顶运算符号并运算
+bool exp_stack_pop(stack<int>& s_num, stack<int>& s_tag, stack<int>& s_opt, stack<int>& s_opt_type){  //弹出栈顶运算符号并运算
     opt_id_cnt++;
     printf("\t%%%d = ",opt_id_cnt);
     if (s_opt_type.top()){  //如果是单目运算符，弹出一个
@@ -90,10 +90,9 @@ bool opt_cmp(int opt_a,int opt_b){
     return opt_cmp_chart[opt_a - 20][opt_b - 20];
 }
 
-int Exp(int head,LL& re_id,int& re_type){        //表达式求值
-    int pos = head,Par = 0,i = 0;
-    stack<LL> s_num;
-    stack<int> s_tag,s_opt,s_opt_type;
+int Exp(int head, int& re_id, int& re_type){        //表达式求值
+    int pos = head, Par = 0, i = 0,is_last_num = false;
+    stack<int> s_num, s_tag, s_opt, s_opt_type;
     while (true){
         i++;
         if (words[pos].id == 1){        //Ident
@@ -103,29 +102,30 @@ int Exp(int head,LL& re_id,int& re_type){        //表达式求值
                 printf("\t%%%d = load i32, i32* %%%d\n", ++opt_id_cnt, p->id);
                 s_num.push(opt_id_cnt);
                 s_tag.push(1);
+                is_last_num = true;
             }
             else {            //function
-                if (p->re_type == 0) {Error = true; return END;}
+                if (p->re_type == 0) {Error = true;puts("Can't put a void function in an exp"); return END;}
                 if (words[++pos].id != 14) {Error = true; return END;} //(
                 func_params *u = p->params;
                 bool first = true;
-                queue<LL> param_id;
+                queue<int> param_id;
                 queue<int> param_type;
                 pos++;
                 while (u != nullptr){
                     if (first) first = false;
-                    else if (words[pos++].id != 28) {Error = true; return END;} //,
+                    else if (words[pos++].id != 28) {Error = true; puts("in lack of ,"); return END;} //,
                     if (u->type == 0) {   //如果是传值
-                        LL re_id_param;
-                        int re_type_param;
+                        int re_id_param,re_type_param;
                         pos = Exp(pos, re_id_param, re_type_param);
+                        if (Error) return END;
                         param_id.push(re_id_param);
                         param_type.push(re_type_param);
                     }
                     else if (u->type == 1){ //如果是传指针
-                        if (words[pos].id != 1){Error = true; return END;}
+                        if (words[pos].id != 1){Error = true; puts("There must be a var"); return END;}
                         symbol* param_i = sym_getIdent(words[pos].name,Space);
-                        if (param_i == nullptr) {Error = true; return END;}
+                        if (param_i == nullptr) {Error = true; puts("Can't find name(exp_func)"); return END;}
                         if (param_i->is_func) {Error = true; return END;}
                         if (param_i->is_const) {Error = true; return END;}
                         //找到合法的变量
@@ -141,57 +141,63 @@ int Exp(int head,LL& re_id,int& re_type){        //表达式求值
                 printf("\t%%%d = call i32 @%s(", ++opt_id_cnt, p->name);
                 first = true;
                 while (!param_id.empty()){
-                    LL p_id = param_id.front(); param_id.pop();
+                    int p_id = param_id.front(); param_id.pop();
                     int p_type = param_type.front(); param_type.pop();
                     if (first) first = false;
                     else {
                         printf(", ");
                     }
                     if (p_type == 2){
-                        printf("i32* %%%lld",p_id);
+                        printf("i32* %%%d",p_id);
                     }
                     else if (p_type == 1){
-                        printf("i32 %%%lld",p_id);
+                        printf("i32 %%%d",p_id);
                     }
                     else if (p_type == 0){
-                        printf("i32 %lld",p_id);
+                        printf("i32 %d",p_id);
                     }
                     else {Error = true; return END;}
                 }
                 printf(")\n");
                 s_num.push(opt_id_cnt);
                 s_tag.push(1);
+                is_last_num = true;
             }
         }
         else if (words[pos].id == 2){   //num
             s_num.push(words[pos].num);
             s_tag.push(0);
+            is_last_num = true;
         }
         else if (words[pos].id == 14){   //(
             s_opt.push(14);
             s_opt_type.push(0);
+            is_last_num = false;
             Par++;
         }
         else if (words[pos].id == 15){   //)
+            if (Par - 1 < 0) break;
             Par--;
-            if (Par < 0) break;
             while (s_opt.top() != 14){  //弹出符号直至(
                 if (!exp_stack_pop(s_num,s_tag,s_opt,s_opt_type)) return false;
             }
             s_opt.pop();
             s_opt_type.pop();
+            is_last_num = true;
         }
         else if (words[pos].id >= 20 && words[pos].id <= 24){  //opt
-            if (i <= 1 || (words[pos - 1].id >= 20 && words[pos - 1].id <= 24) || words[pos - 1].id == 14){
+            if (!is_last_num){
                 s_opt.push(words[pos].id);
                 s_opt_type.push(1);
+                is_last_num = false;
             }
             else {
-                while (!s_opt.empty() && (s_opt_type.top() == 1 || s_opt.top() != 14 && opt_cmp(s_opt.top(), words[pos].id))) {
+                while (!s_opt.empty() && (s_opt_type.top() == 1 || (s_opt.top() != 14 && opt_cmp(s_opt.top(), words[pos].id)))) {
                     if (!exp_stack_pop(s_num,s_tag,s_opt,s_opt_type)) return false;
                 }
                 s_opt.push(words[pos].id);
                 s_opt_type.push(0);
+                is_last_num = false;
             }
         }
         else break;
@@ -200,13 +206,14 @@ int Exp(int head,LL& re_id,int& re_type){        //表达式求值
     while (!s_opt.empty()){
         if (!exp_stack_pop(s_num,s_tag,s_opt,s_opt_type)) {Error = true; return END;}
     }
-    if (s_num.size() != 1) {Error = true; puts("Empty exp!"); return END;}
+    if (s_num.size() != 1) {Error = true; puts("Wrong exp!"); return END;}
+    if (Par) {Error = true; printf("%d %d\n",pos,Par); puts("Par not matched!"); return END;}
     re_id = s_num.top();
     re_type = s_tag.top();
     return pos;
 }
 
-int ConstExp(int head,LL& re_id,int& re_type){
+int ConstExp(int head, int& re_id, int& re_type){
     int pos = head;
     pos = Exp(pos,re_id,re_type);
     return pos;
@@ -214,26 +221,25 @@ int ConstExp(int head,LL& re_id,int& re_type){
 
 int const_declare(int pos){  //@插入常量声明
     sym_insert(words[pos].name,Space,++opt_id_cnt,true);
-    out_put_tabs();
-    printf("%%%d = alloca i32\n",opt_id_cnt);
+    printf("\t%%%d = alloca i32\n",opt_id_cnt);
     return opt_id_cnt;
 }
 
-void const_var_init(int id,const LL& re_id,const int& re_type){  //@插入常量初始化
+void const_var_init(int id, const int& re_id, const int& re_type){  //@插入常量初始化
     printf("\t");
     if (re_type) printf("store i32 %%%d, i32* %%%d\n",re_id,id);
     else printf("store i32 %d, i32* %%%d\n",re_id,id);
 }
 
 int var_declare(int pos){  //@插入变量声明
-    out_put_tabs();
+    printf("\t");
     if (!sym_insert(words[pos].name,Space,++opt_id_cnt,false)) Error = true;
     printf("%%%d = alloca i32\n",opt_id_cnt);
     return opt_id_cnt;
 }
 
-void var_modify(int id,const LL& re_id,const int& re_type){    //@插入变量修改
-    out_put_tabs();
+void var_modify(int id, const int& re_id, const int& re_type){    //@插入变量修改
+    printf("\t");
     if (re_type) printf("store i32 %%%d, i32* %%%d\n",re_id,id);
     else printf("store i32 %d, i32* %%%d\n",re_id,id);
 }
@@ -244,9 +250,10 @@ int ConstDef(int head){          //常量声明
         int ident_id = const_declare(pos);    //@
         pos++;
         if (words[pos].id == 12){ //=
-            LL re_id;
+            int re_id;
             int re_type;
             pos = ConstExp(pos + 1,re_id,re_type); //@
+            if (Error) return END;
             const_var_init(ident_id,re_id,re_type);   //@
         }
         else {Error = true; return END;}
@@ -262,7 +269,7 @@ int VarDef(int head){          //变量声明
         if (Error) return END;
         pos++;
         if (words[pos].id == 12){ //=
-            LL re_id;
+            int re_id;
             int re_type;
             pos = Exp(pos + 1,re_id,re_type); //@
             if (Error) return END;
@@ -282,7 +289,9 @@ int BType(int head){             //数据类型
 int VarDecl(int head){      //变量声明
     int pos = head;
     pos = BType(pos);
+    if (Error) return END;
     pos = VarDef(pos);
+    if (Error) return END;
     while (words[pos].id == 28){ //,
         pos = VarDef(pos + 1);
         if (Error) return END;
@@ -297,9 +306,12 @@ int ConstDecl(int head){
     if (words[pos].id == 11){ //const
         pos++;
         pos = BType(pos);
+        if (Error) return END;
         pos = ConstDef(pos);
+        if (Error) return END;
         while (words[pos].id == 28){ //,
             pos = ConstDef(pos + 1);
+            if (Error) return END;
         }
         if (words[pos].id != 13) {Error = true; return END;} //;
         pos++;
@@ -316,10 +328,10 @@ int Decl(int head){
     return pos;
 }
 
-void return_value(const LL& re_id,const int& re_type){   //@return
-    out_put_tabs();
-    if (re_type) printf("ret i32 %%%lld\n",re_id);
-    else printf("ret i32 %lld\n",re_id);
+void return_value(const int& re_id, const int& re_type){   //@return
+    printf("\t");
+    if (re_type) printf("ret i32 %%%d\n",re_id);
+    else printf("ret i32 %d\n",re_id);
 }
 
 int Voidfun(int head){
@@ -330,15 +342,13 @@ int Voidfun(int head){
     if (words[++pos].id != 14) {Error = true; return END;} //(
     func_params *u = p->params;
     bool first = true;
-    queue<LL> param_id;
-    queue<int> param_type;
+    queue<int> param_id,param_type;
     pos++;
     while (u != nullptr){
         if (first) first = false;
         else if (words[pos++].id != 28) {Error = true; return END;} //,
         if (u->type == 0) {   //如果是传值
-            LL re_id_param;
-            int re_type_param;
+            int re_id_param,re_type_param;
             pos = Exp(pos, re_id_param, re_type_param);
             if (Error) return END;
             param_id.push(re_id_param);
@@ -362,20 +372,20 @@ int Voidfun(int head){
     printf("\tcall void @%s(", p->name);
     first = true;
     while (!param_id.empty()){
-        LL p_id = param_id.front(); param_id.pop();
+        int p_id = param_id.front(); param_id.pop();
         int p_type = param_type.front(); param_type.pop();
         if (first) first = false;
         else {
             printf(", ");
         }
         if (p_type == 2){
-            printf("i32* %%%lld",p_id);
+            printf("i32* %%%d",p_id);
         }
         else if (p_type == 1){
-            printf("i32 %%%lld",p_id);
+            printf("i32 %%%d",p_id);
         }
         else if (p_type == 0){
-            printf("i32 %lld",p_id);
+            printf("i32 %d",p_id);
         }
         else {Error = true; return END;}
     }
@@ -386,9 +396,9 @@ int Voidfun(int head){
 int Stmt(int head){
     int pos = head;
     if (words[pos].id == 8){ //return
-        LL re_id;
-        int re_type;
+        int re_id,re_type;
         pos = Exp(pos + 1,re_id,re_type);
+        if (Error) return END;
         if (words[pos].id != 13) {Error = true; puts("Error at Stmt 1"); return END;}
         return_value(re_id,re_type); //@return
         pos++;
@@ -400,9 +410,9 @@ int Stmt(int head){
         if (p->is_const) {Error = true; puts("Error at Stmt 2.5:modify const"); return END;}
         int ident_id = p->id;
         //printf("%d",words[pos+2].id);
-        LL re_id;
-        int re_type;
+        int re_id,re_type;
         pos = Exp(pos + 2,re_id,re_type); //@
+        if (Error) return END;
         //printf("%lld\n",words[pos].id);
         var_modify(ident_id,re_id,re_type);   //@
         if (words[pos].id != 13) {Error = true; puts("Error at Stmt 3"); return END;} //;
@@ -419,12 +429,13 @@ int Stmt(int head){
             if (p == nullptr) {Error = true; puts("stmt Ident not found"); return END;}
             if (p->is_func && p->re_type == 0){
                 pos = Voidfun(pos);
+                if (Error) return END;
                 if (words[pos].id != 13) {Error = true; puts("Error at Stmt 4"); return END;}
                 pos++;
                 return pos;
             }
         }
-        LL re_id;
+        int re_id;
         int re_type;
         pos = Exp(pos,re_id,re_type);
         if (Error) return END;
@@ -439,8 +450,10 @@ int BlockItem(int head){
     while (words[pos].id != 17 && !Error) {   //遇到}退出
         if (words[pos].id == 11 || words[pos].id == 9) {  //const ||  int
             pos = Decl(pos);
+            if (Error) return END;
         } else {
             pos = Stmt(pos);
+            if (Error) return END;
         }
     }
     return pos;
@@ -455,6 +468,7 @@ int Block(int head){
     pos++;
     layer_cnt++;
     pos = BlockItem(pos);
+    if (Error) return END;
     layer_cnt--;
     if (words[pos].id == 17){   //}
         out_put_tabs();
