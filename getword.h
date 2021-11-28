@@ -7,8 +7,8 @@
 #include<queue>
 #include<string>
 #define LL long long int
-char text[10005];
-char c_get,Token[10005];
+char text[1000005];
+char c_get,Token[1000005];
 int pos_S = 0,L = 0;
 int ti = 0;
 char keyWord[][20]={"if","else","while","break","continue","return","int","void","const"};
