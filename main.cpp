@@ -277,6 +277,9 @@ int VarDef(int head){          //变量声明
             if (Error) {puts("var name already exists."); return END;}
             var_modify(ident_id,re_id,re_type);   //@
         }
+        else {
+            var_declare(t_pos);    //@
+        }
     }
     else {Error = true; printf("VarDef no Ident"); return END;}
     return pos;

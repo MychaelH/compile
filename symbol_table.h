@@ -67,6 +67,7 @@ int get_code(const char* s){
 
 
 symbol* sym_getIdent(const char* name,int space){
+    //puts(name);
     int code = get_code(name);
     int t_space = space;
     while (true) {
