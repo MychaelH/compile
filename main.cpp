@@ -90,7 +90,7 @@ bool opt_cmp(int opt_a,int opt_b){
     return opt_cmp_chart[opt_a - 20][opt_b - 20];
 }
 
-int Exp(int head, int& re_id, int& re_type){        //表达式求值
+int Exp(int head, int& re_id, int& re_type, bool is_const = false){        //表达式求值
     int pos = head, Par = 0, i = 0,is_last_num = false;
     stack<int> s_num, s_tag, s_opt, s_opt_type;
     while (true){
@@ -98,6 +98,7 @@ int Exp(int head, int& re_id, int& re_type){        //表达式求值
         if (words[pos].id == 1){        //Ident
             symbol* p = sym_getIdent(words[pos].name,Space);
             if (p == nullptr) {Error = true; puts("Exp Ident not found"); return END;}
+            if (is_const && p->is_const == false) {Error = true; puts("Should not put a var in a constexp"); return END;}
             if (!p->is_func) {
                 printf("\t%%%d = load i32, i32* %%%d\n", ++opt_id_cnt, p->id);
                 s_num.push(opt_id_cnt);
@@ -215,12 +216,12 @@ int Exp(int head, int& re_id, int& re_type){        //表达式求值
 
 int ConstExp(int head, int& re_id, int& re_type){
     int pos = head;
-    pos = Exp(pos,re_id,re_type);
+    pos = Exp(pos,re_id,re_type,true);
     return pos;
 }
 
 int const_declare(int pos){  //@插入常量声明
-    sym_insert(words[pos].name,Space,++opt_id_cnt,true);
+    if (!sym_insert(words[pos].name,Space,++opt_id_cnt,true)) Error = true;
     printf("\t%%%d = alloca i32\n",opt_id_cnt);
     return opt_id_cnt;
 }
@@ -247,12 +248,12 @@ void var_modify(int id, const int& re_id, const int& re_type){    //@插入变�
 int ConstDef(int head){          //常量声明
     int pos = head;
     if (words[pos].id == 1){   //Ident
-        int ident_id = const_declare(pos);    //@
-        pos++;
+        int t_pos = pos++;
         if (words[pos].id == 12){ //=
-            int re_id;
-            int re_type;
+            int re_id,re_type;
             pos = ConstExp(pos + 1,re_id,re_type); //@
+            if (Error) {puts("var name already exists."); return END;}
+            int ident_id = const_declare(t_pos);    //@
             if (Error) return END;
             const_var_init(ident_id,re_id,re_type);   //@
         }
@@ -265,14 +266,15 @@ int ConstDef(int head){          //常量声明
 int VarDef(int head){          //变量声明
     int pos = head;
     if (words[pos].id == 1){   //Ident
-        int ident_id = var_declare(pos);    //@
-        if (Error) return END;
+        int t_pos = pos;
         pos++;
         if (words[pos].id == 12){ //=
             int re_id;
             int re_type;
             pos = Exp(pos + 1,re_id,re_type); //@
             if (Error) return END;
+            int ident_id = var_declare(t_pos);    //@
+            if (Error) {puts("var name already exists."); return END;}
             var_modify(ident_id,re_id,re_type);   //@
         }
     }
