@@ -553,7 +553,7 @@ int main(){
     get_sym();
     printf("}\n");
     END = words_len;
-    CompUnit(1);
+    //CompUnit(1);
     if (Error) return 1;
     return 0;
 }
