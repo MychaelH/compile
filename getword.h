@@ -269,14 +269,14 @@ void get_clear(){    //去注释
 
 void sym_init(){
     get_in();
-    get_clear();
+    //get_clear();
 }
 
 void get_sym(){
     sym_init();
-    c_get = get_char();
+    /*c_get = get_char();
     while (c_get != EOF) work();
-    words[++words_len].id = 100;
+    words[++words_len].id = 100;*/
 }
 
 int now = 0;
