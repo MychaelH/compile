@@ -232,7 +232,7 @@ void get_in(){
     c_get = getchar();
     while (c_get != EOF){
         text[++L] = c_get;
-        printf("call void @putch(i32 %d)\n",(int)c_get);
+        printf("\tcall void @putch(i32 %d)\n",(int)c_get);
         c_get = getchar();
     }
 }

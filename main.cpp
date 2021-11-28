@@ -551,7 +551,7 @@ int main(){
     //freopen("out.txt","w",stdout);
     printf("declare void @putch(i32)\ndefine i32 @main(){\n");
     get_sym();
-    printf("}\n");
+    printf("\tret i32 0\n}\n");
     //END = words_len;
     //CompUnit(1);
     //if (Error) return 1;
