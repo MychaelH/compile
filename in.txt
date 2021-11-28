@@ -1,5 +1,5 @@
 int main() {
     int a = getint(),b = 1---getint();
-    putint(a * b ++++a - ---b);
+    putint(a * b ++++a - ---b));
     return 0;
 }

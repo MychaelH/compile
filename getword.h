@@ -77,7 +77,7 @@ struct node{
         this->name = new char[20];
         strcpy(this->name,t);
     }
-}words[100005];
+}words[1000005];
 int words_len = 0;
 
 //读入
