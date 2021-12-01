@@ -150,14 +150,14 @@ struct Output_region{
                         else puts("Error at output1");
                         break;
                     case 2:
-                        printf("\t%%%d = load i32* %%%d\n",++opt_cnt,u.opt_num[0].id);
+                        printf("\t%%%d = load i32, i32* %%%d\n",++opt_cnt,u.opt_num[0].id);
                         break;
                     case 3:
                         printf("\tcall void @%s(",u.name);
                         for (unsigned int j = 0; j < u.opt_num.size(); j++){
                             if (j) printf(", ");
                             if (u.opt_num[j].type == 0) {
-                                printf("i32 %d");
+                                printf("i32 %d", u.opt_num[j].id);
                             }
                             else if (u.opt_num[j].type == 1){
                                 printf("i32 %%%d", u.opt_num[j].id);
@@ -173,7 +173,7 @@ struct Output_region{
                         for (unsigned int j = 0; j < u.opt_num.size(); j++){
                             if (j) printf(", ");
                             if (u.opt_num[j].type == 0) {
-                                printf("i32 %d");
+                                printf("i32 %d", u.opt_num[j].id);
                             }
                             else if (u.opt_num[j].type == 1){
                                 printf("i32 %%%d", u.opt_num[j].id);
