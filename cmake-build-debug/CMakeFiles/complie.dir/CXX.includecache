@@ -6,6 +6,16 @@
 
 #IncludeRegexTransform: 
 
+D:/compile/compile/Output_region.h
+queue
+-
+utility
+-
+vector
+-
+cstring
+-
+
 D:/compile/compile/getword.h
 cstdio
 -
@@ -29,10 +39,14 @@ stack
 -
 queue
 -
+vector
+-
 getword.h
 D:/compile/compile/getword.h
 symbol_table.h
 D:/compile/compile/symbol_table.h
+Output_region.h
+D:/compile/compile/Output_region.h
 
 D:/compile/compile/symbol_table.h
 cstdio
