@@ -437,13 +437,13 @@ Output_region* do_or_exp(stack<Output_region*>& s_block){
 }
 
 int Cond(int head, Output_region*& out){
-    int pos = head, turn = 0, opt_num = out->opt_id_cnt;
+    int pos = head, turn = 0;
     bool first = true;
     stack<Output_region*> s_block;
     stack<int> s_opt;
     while (true){
         if (!turn){  //创建新的表达式模块
-            auto *p = new Output_region(opt_num);
+            auto *p = new Output_region();
             p->set_is_jump();
             if (first) first = false;
             else p->set_label();
@@ -452,7 +452,6 @@ int Cond(int head, Output_region*& out){
             if (Error) return END;
             int id = p->get_new_id();
             p->insert_icmp_eq(id, var_node(re_type, re_id), var_node(0, 0));
-            opt_num = p->opt_id_cnt;
             s_block.push(p);
         }
         else if (words[pos].id == 30){   // And
@@ -508,13 +507,13 @@ int If(int head, Output_region*& out){
     int pos = head;
     if (words[pos++].id != 3) {Error = true; puts("Error at If name"); return END;}
     if (words[pos++].id != 14) {Error = true; puts("Error at If LPar"); return END;}
-    auto *cond_out = new Output_region(out->opt_id_cnt);
+    auto *cond_out = new Output_region();
     pos = Cond(pos, cond_out); //计算cond表达式，返回输出模块cond_out
     out->insert_block(cond_out);
     if (words[pos++].id != 15) {Error = true; puts("Error at If RPar"); return END;}
     //if stmt
     Output_region *t = nullptr;
-    auto *stmt_out1 = new Output_region(out->opt_id_cnt);
+    auto *stmt_out1 = new Output_region();
     stmt_out1->set_is_jump();
     stmt_out1->set_label();
     cond_out->p_yes = stmt_out1;
@@ -523,7 +522,7 @@ int If(int head, Output_region*& out){
     stmt_out1 = t;
     out->insert_block(stmt_out1);
     //else stmt
-    auto *stmt_out2 = new Output_region(out->opt_id_cnt);
+    auto *stmt_out2 = new Output_region();
     stmt_out2->set_is_jump();
     stmt_out2->set_label();
     cond_out->p_no = stmt_out2;
@@ -534,7 +533,7 @@ int If(int head, Output_region*& out){
     }
     out->insert_block(stmt_out2);
     //other block
-    auto *other_out = new Output_region(out->opt_id_cnt);
+    auto *other_out = new Output_region();
     other_out->set_label();
     stmt_out1->p_jump = other_out;
     stmt_out2->p_jump = other_out;
@@ -672,12 +671,14 @@ int FuncDef(int head){
     Space_pre[Space_cnt] = Space;
     Space = Space_cnt;
     auto *out = new Output_region();
+    opt_id_cnt = 0;
     if (words[pos++].id == 16){   //{
         printf("{\n");
     }
     else {Error = true; puts("Error at Block 1"); return END;}
     pos = Block(pos, out);
     while (out->pre != nullptr) out = out->pre;
+    opt_id_cnt = 0;
     out->output();
     if (words[pos++].id == 17){   //}
         printf("}\n");

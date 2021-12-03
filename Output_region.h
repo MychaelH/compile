@@ -8,7 +8,7 @@
 #include <utility>
 #include<vector>
 #include<cstring>
-
+static int opt_id_cnt;
 struct var_node{
     int type{};  //0:i32 id  1:i32 %id  2:i32* %id
     int id{};
@@ -79,21 +79,12 @@ struct output_unit{
 
 struct Output_region{
     int label;
-    int opt_id_cnt;
     bool is_jump,is_labeled;
     vector<output_unit> out;
     Output_region *pre, *p_yes, *p_no, *p_jump;
     Output_region(){
         label = -1;
         pre = p_yes = p_no = p_jump = nullptr;
-        opt_id_cnt = 0;
-        is_jump = false;
-        is_labeled = false;
-    }
-    explicit Output_region(int start){
-        label = -1;
-        pre = p_yes = p_no = p_jump = nullptr;
-        opt_id_cnt = start;
         is_jump = false;
         is_labeled = false;
     }
@@ -166,11 +157,13 @@ struct Output_region{
     void insert_block(Output_region* inside_region){
         out.emplace_back(output_unit(1, inside_region));
         inside_region->pre = this;
-        this->opt_id_cnt = inside_region->opt_id_cnt;
     }
 
     void output(){
-        if (is_labeled && this->label != -1) printf("%d:\n",this->label);
+        if (is_labeled && this->label != -1){
+            printf("%d:\n",this->label);
+            opt_id_cnt++;
+        }
         for (auto & u : out){
             if (u.type == 1){
                 (u.block)->output();
@@ -179,6 +172,7 @@ struct Output_region{
                 switch(u.opt_t){
                     case 0: //alloc
                         printf("\t%%%d = alloca i32\n",u.left_id);
+                        opt_id_cnt++;
                         break;
                     case 1:
                         if (u.opt_num[0].type == 0){
@@ -191,6 +185,7 @@ struct Output_region{
                         break;
                     case 2:
                         printf("\t%%%d = load i32, i32* %%%d\n",u.left_id,u.opt_num[0].id);
+                        opt_id_cnt++;
                         break;
                     case 3:
                         printf("\tcall void @%s(",u.name);
@@ -223,6 +218,7 @@ struct Output_region{
                             }
                         }
                         printf(")\n");
+                        opt_id_cnt++;
                         break;
                     case 5:
                         printf("\tret ");
@@ -233,6 +229,7 @@ struct Output_region{
                             printf("i32 %%%d\n", u.opt_num[0].id);
                         }
                         else puts("Error at output5");
+                        opt_id_cnt++;
                         break;
                     case 6:
                         printf("\t%%%d = add i32 ", u.left_id);
@@ -247,6 +244,7 @@ struct Output_region{
                             if (!j) printf(", ");
                         }
                         printf("\n");
+                        opt_id_cnt++;
                         break;
                     case 7:
                         printf("\t%%%d = sub i32 ", u.left_id);
@@ -261,6 +259,7 @@ struct Output_region{
                             if (!j) printf(", ");
                         }
                         printf("\n");
+                        opt_id_cnt++;
                         break;
                     case 8:
                         printf("\t%%%d = mul i32 ", u.left_id);
@@ -275,6 +274,7 @@ struct Output_region{
                             if (!j) printf(", ");
                         }
                         printf("\n");
+                        opt_id_cnt++;
                         break;
                     case 9:
                         printf("\t%%%d = sdiv i32 ", u.left_id);
@@ -289,6 +289,7 @@ struct Output_region{
                             if (!j) printf(", ");
                         }
                         printf("\n");
+                        opt_id_cnt++;
                         break;
                     case 10:
                         printf("\t%%%d = srem i32 ", u.left_id);
@@ -303,9 +304,11 @@ struct Output_region{
                             if (!j) printf(", ");
                         }
                         printf("\n");
+                        opt_id_cnt++;
                         break;
                     case 11:
                         printf("\t%%%d = zext i1 %%%d to i32\n", u.left_id, u.opt_num[0].id);
+                        opt_id_cnt++;
                         break;
                     case 12:
                         printf("\t%%%d = icmp eq i32 ", u.left_id);
@@ -320,6 +323,7 @@ struct Output_region{
                             if (!j) printf(", ");
                         }
                         printf("\n");
+                        opt_id_cnt++;
                         break;
                     case 13:
                         printf("\t%%%d = icmp ne i32 ", u.left_id);
@@ -334,6 +338,7 @@ struct Output_region{
                             if (!j) printf(", ");
                         }
                         printf("\n");
+                        opt_id_cnt++;
                         break;
                     case 14:
                         printf("\t%%%d = icmp sgt i32 ", u.left_id);
@@ -348,6 +353,7 @@ struct Output_region{
                             if (!j) printf(", ");
                         }
                         printf("\n");
+                        opt_id_cnt++;
                         break;
                     case 15:
                         printf("\t%%%d = icmp slt i32 ", u.left_id);
@@ -362,6 +368,7 @@ struct Output_region{
                             if (!j) printf(", ");
                         }
                         printf("\n");
+                        opt_id_cnt++;
                         break;
                     case 16:
                         printf("\t%%%d = icmp sge i32 ", u.left_id);
@@ -376,6 +383,7 @@ struct Output_region{
                             if (!j) printf(", ");
                         }
                         printf("\n");
+                        opt_id_cnt++;
                         break;
                     case 17:
                         printf("\t%%%d = icmp sle i32 ", u.left_id);
@@ -390,6 +398,7 @@ struct Output_region{
                             if (!j) printf(", ");
                         }
                         printf("\n");
+                        opt_id_cnt++;
                         break;
                     default:puts("Error at output");break;
                 }
@@ -439,7 +448,7 @@ struct Output_region{
                     }
                     nj = t->p_no->label;
                 }
-                printf("\tbr i1 %%%d, label %%%d, label %%%d\n", this->opt_id_cnt, nj, yj);
+                printf("\tbr i1 %%%d, label %%%d, label %%%d\n", opt_id_cnt, nj, yj);
             }
         }
     }
