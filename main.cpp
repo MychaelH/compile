@@ -620,10 +620,14 @@ int BlockItem(int head, Output_region*& out){
 
 int Block(int head, Output_region*& out){
     int pos = head;
+    Space_cnt++;
+    Space_pre[Space_cnt] = Space;
+    Space = Space_cnt;
     layer_cnt++;
     pos = BlockItem(pos, out);
     if (Error) return END;
     layer_cnt--;
+    Space = Space_pre[Space];
     return pos;
 }
 
@@ -679,6 +683,7 @@ int FuncDef(int head){
         printf("}\n");
     }
     else {Error = true; puts("Error at Block 2"); return END;}
+    Space = Space_pre[Space];
     return pos;
 }
 
