@@ -357,6 +357,7 @@ int Decl(int head, Output_region*& out){
 }
 
 void return_value(const int& re_id, const int& re_type, Output_region*& out){   //@return
+    out->get_new_id();
     out->insert_ret(var_node(re_type, re_id));
 }
 
