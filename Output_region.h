@@ -24,7 +24,8 @@ struct Output_region;
 struct output_unit{
     int type{0};  //0:line 1:block
     int opt_t{}; //0:alloc 1:store 2:load 3:call void 4:call i32 5:ret
-    //6:add 7:sub 8:mul 9:sdiv 10:srem
+    //6:add 7:sub 8:mul 9:sdiv 10:srem 11:zext 12:icmp eq
+    //13:ne 14:sgt 15:slt 16:sge 17:sle
     //icmp....
     int left_id{};
     char *name{nullptr};
@@ -36,11 +37,12 @@ struct output_unit{
         this->opt_t = opt_t;
         this->left_id = left_id;
     }
-    output_unit(int type,int opt_t,var_node a,var_node b){
+    output_unit(int type, int opt_t, var_node a, var_node b, int left_id = 0){
         this->type = type;
         this->opt_t = opt_t;
         (this->opt_num).push_back(a);
         (this->opt_num).push_back(b);
+        this->left_id = left_id;
     }
     output_unit(int type, int opt_t, int left_id, var_node a){
         this->type = type;
@@ -76,16 +78,33 @@ struct output_unit{
 
 
 struct Output_region{
+    int label;
     int opt_id_cnt;
+    bool is_jump,is_labeled;
     vector<output_unit> out;
-    Output_region *pre;
+    Output_region *pre, *p_yes, *p_no, *p_jump;
     Output_region(){
-        pre = nullptr;
+        label = -1;
+        pre = p_yes = p_no = p_jump = nullptr;
         opt_id_cnt = 0;
+        is_jump = false;
+        is_labeled = false;
     }
     explicit Output_region(int start){
-        pre = nullptr;
+        label = -1;
+        pre = p_yes = p_no = p_jump = nullptr;
         opt_id_cnt = start;
+        is_jump = false;
+        is_labeled = false;
+    }
+    //设置输出块标签用以跳转
+    void set_label(){  //only be used when the region is just created
+        label = ++opt_id_cnt;
+        is_labeled = true;
+    }
+    //设置模块末尾有跳转
+    void set_is_jump(){
+        is_jump = true;
     }
     int get_new_id(){
         return ++opt_id_cnt;
@@ -109,36 +128,57 @@ struct Output_region{
         out.emplace_back(output_unit(0,5,a));
     }
     void insert_add(int id,var_node a,var_node b){
-        out.emplace_back(output_unit(0, 6, a, b));
+        out.emplace_back(output_unit(0, 6, a, b, id));
     }
     void insert_sub(int id,var_node a,var_node b){
-        out.emplace_back(output_unit(0, 7, a, b));
+        out.emplace_back(output_unit(0, 7, a, b, id));
     }
     void insert_mul(int id,var_node a,var_node b){
-        out.emplace_back(output_unit(0, 8, a, b));
+        out.emplace_back(output_unit(0, 8, a, b, id));
     }
     void insert_sdiv(int id,var_node a,var_node b){
-        out.emplace_back(output_unit(0, 9, a, b));
+        out.emplace_back(output_unit(0, 9, a, b, id));
     }
     void insert_srem(int id,var_node a,var_node b){
-        out.emplace_back(output_unit(0, 10, a, b));
+        out.emplace_back(output_unit(0, 10, a, b, id));
     }
-    void insert_block(Output_region& inside_region){
-        out.emplace_back(output_unit(1, &inside_region));
-        inside_region.pre = this;
-        this->opt_id_cnt += inside_region.opt_id_cnt;
+    void insert_zext(int id, var_node a){
+        out.emplace_back(output_unit(0, 11, id, a));
     }
-    int output(int head){
-        int opt_cnt = head;
-        for (unsigned int i = 0; i < out.size(); i++){
-            output_unit& u = out[i];
+    void insert_icmp_eq(int id, var_node a, var_node b){
+        out.emplace_back(output_unit(0, 12, a, b, id));
+    }
+    void insert_icmp_ne(int id, var_node a, var_node b){
+        out.emplace_back(output_unit(0, 13, a, b, id));
+    }
+    void insert_icmp_sgt(int id, var_node a, var_node b){
+        out.emplace_back(output_unit(0, 14, a, b, id));
+    }
+    void insert_icmp_slt(int id, var_node a, var_node b){
+        out.emplace_back(output_unit(0, 15, a, b, id));
+    }
+    void insert_icmp_sge(int id, var_node a, var_node b){
+        out.emplace_back(output_unit(0, 16, a, b, id));
+    }
+    void insert_icmp_sle(int id, var_node a, var_node b){
+        out.emplace_back(output_unit(0, 17, a, b, id));
+    }
+    void insert_block(Output_region* inside_region){
+        out.emplace_back(output_unit(1, inside_region));
+        inside_region->pre = this;
+        this->opt_id_cnt = inside_region->opt_id_cnt;
+    }
+
+    void output(){
+        if (is_labeled && this->label != -1) printf("%d:\n",this->label);
+        for (auto & u : out){
             if (u.type == 1){
-                opt_cnt = (u.block)->output(opt_cnt);
+                (u.block)->output();
             }
             else {
                 switch(u.opt_t){
                     case 0: //alloc
-                        printf("\t%%%d = alloca i32\n",++opt_cnt);
+                        printf("\t%%%d = alloca i32\n",u.left_id);
                         break;
                     case 1:
                         if (u.opt_num[0].type == 0){
@@ -150,7 +190,7 @@ struct Output_region{
                         else puts("Error at output1");
                         break;
                     case 2:
-                        printf("\t%%%d = load i32, i32* %%%d\n",++opt_cnt,u.opt_num[0].id);
+                        printf("\t%%%d = load i32, i32* %%%d\n",u.left_id,u.opt_num[0].id);
                         break;
                     case 3:
                         printf("\tcall void @%s(",u.name);
@@ -169,7 +209,7 @@ struct Output_region{
                         printf(")\n");
                         break;
                     case 4:
-                        printf("\t%%%d = call i32 @%s(", ++opt_cnt, u.name);
+                        printf("\t%%%d = call i32 @%s(", u.left_id, u.name);
                         for (unsigned int j = 0; j < u.opt_num.size(); j++){
                             if (j) printf(", ");
                             if (u.opt_num[j].type == 0) {
@@ -195,7 +235,7 @@ struct Output_region{
                         else puts("Error at output5");
                         break;
                     case 6:
-                        printf("\t%%%d = add i32 ", ++opt_cnt);
+                        printf("\t%%%d = add i32 ", u.left_id);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
                                 printf("%d", u.opt_num[j].id);
@@ -209,7 +249,7 @@ struct Output_region{
                         printf("\n");
                         break;
                     case 7:
-                        printf("\t%%%d = sub i32 ", ++opt_cnt);
+                        printf("\t%%%d = sub i32 ", u.left_id);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
                                 printf("%d", u.opt_num[j].id);
@@ -223,7 +263,7 @@ struct Output_region{
                         printf("\n");
                         break;
                     case 8:
-                        printf("\t%%%d = mul i32 ", ++opt_cnt);
+                        printf("\t%%%d = mul i32 ", u.left_id);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
                                 printf("%d", u.opt_num[j].id);
@@ -237,7 +277,7 @@ struct Output_region{
                         printf("\n");
                         break;
                     case 9:
-                        printf("\t%%%d = sdiv i32 ", ++opt_cnt);
+                        printf("\t%%%d = sdiv i32 ", u.left_id);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
                                 printf("%d", u.opt_num[j].id);
@@ -251,7 +291,7 @@ struct Output_region{
                         printf("\n");
                         break;
                     case 10:
-                        printf("\t%%%d = srem i32 ", ++opt_cnt);
+                        printf("\t%%%d = srem i32 ", u.left_id);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
                                 printf("%d", u.opt_num[j].id);
@@ -264,11 +304,144 @@ struct Output_region{
                         }
                         printf("\n");
                         break;
+                    case 11:
+                        printf("\t%%%d = zext i1 %%%d to i32\n", u.left_id, u.opt_num[0].id);
+                        break;
+                    case 12:
+                        printf("\t%%%d = icmp eq i32 ", u.left_id);
+                        for (int j = 0; j <= 1; j++){
+                            if (u.opt_num[j].type == 0){
+                                printf("%d", u.opt_num[j].id);
+                            }
+                            else if (u.opt_num[j].type == 1){
+                                printf("%%%d", u.opt_num[j].id);
+                            }
+                            else puts("Error at output12");
+                            if (!j) printf(", ");
+                        }
+                        printf("\n");
+                        break;
+                    case 13:
+                        printf("\t%%%d = icmp ne i32 ", u.left_id);
+                        for (int j = 0; j <= 1; j++){
+                            if (u.opt_num[j].type == 0){
+                                printf("%d", u.opt_num[j].id);
+                            }
+                            else if (u.opt_num[j].type == 1){
+                                printf("%%%d", u.opt_num[j].id);
+                            }
+                            else puts("Error at output12");
+                            if (!j) printf(", ");
+                        }
+                        printf("\n");
+                        break;
+                    case 14:
+                        printf("\t%%%d = icmp sgt i32 ", u.left_id);
+                        for (int j = 0; j <= 1; j++){
+                            if (u.opt_num[j].type == 0){
+                                printf("%d", u.opt_num[j].id);
+                            }
+                            else if (u.opt_num[j].type == 1){
+                                printf("%%%d", u.opt_num[j].id);
+                            }
+                            else puts("Error at output12");
+                            if (!j) printf(", ");
+                        }
+                        printf("\n");
+                        break;
+                    case 15:
+                        printf("\t%%%d = icmp slt i32 ", u.left_id);
+                        for (int j = 0; j <= 1; j++){
+                            if (u.opt_num[j].type == 0){
+                                printf("%d", u.opt_num[j].id);
+                            }
+                            else if (u.opt_num[j].type == 1){
+                                printf("%%%d", u.opt_num[j].id);
+                            }
+                            else puts("Error at output12");
+                            if (!j) printf(", ");
+                        }
+                        printf("\n");
+                        break;
+                    case 16:
+                        printf("\t%%%d = icmp sge i32 ", u.left_id);
+                        for (int j = 0; j <= 1; j++){
+                            if (u.opt_num[j].type == 0){
+                                printf("%d", u.opt_num[j].id);
+                            }
+                            else if (u.opt_num[j].type == 1){
+                                printf("%%%d", u.opt_num[j].id);
+                            }
+                            else puts("Error at output12");
+                            if (!j) printf(", ");
+                        }
+                        printf("\n");
+                        break;
+                    case 17:
+                        printf("\t%%%d = icmp sle i32 ", u.left_id);
+                        for (int j = 0; j <= 1; j++){
+                            if (u.opt_num[j].type == 0){
+                                printf("%d", u.opt_num[j].id);
+                            }
+                            else if (u.opt_num[j].type == 1){
+                                printf("%%%d", u.opt_num[j].id);
+                            }
+                            else puts("Error at output12");
+                            if (!j) printf(", ");
+                        }
+                        printf("\n");
+                        break;
                     default:puts("Error at output");break;
                 }
             }
         }
-        return opt_cnt;
+        if (this->is_jump) {   //如果是带跳跃的模块
+            if (this->p_jump != nullptr) {  //直接跳
+                Output_region *t = this;
+                while (t->p_jump != nullptr && !t->p_jump->is_labeled) {
+                    t = t->p_jump;
+                }
+                if (t->p_jump == nullptr || !t->p_jump->is_labeled) {
+                    puts("Wrong at jump???");
+                    return;
+                }
+                printf("\tbr label %%%d\n", t->p_jump->label);
+            }
+            else {  //分支跳
+                int yj, nj;
+                //找到yes跳的对象
+                if (this->p_yes != nullptr){
+                    yj = this->p_yes->label;
+                }
+                else {
+                    Output_region *t = this;
+                    while (t != nullptr && t->p_yes == nullptr) {
+                        t = t->pre;
+                    }
+                    if (t == nullptr || t->p_yes == nullptr) {
+                        puts("Wrong at jump yes");
+                        return;
+                    }
+                    yj = t->p_yes->label;
+                }
+                //找到no跳的对象
+                if (this->p_no != nullptr){
+                    nj = this->p_no->label;
+                }
+                else {
+                    Output_region *t = this;
+                    while (t != nullptr && t->p_no == nullptr) {
+                        t = t->pre;
+                    }
+                    if (t == nullptr || t->p_no == nullptr) {
+                        puts("Wrong at jump no");
+                        return;
+                    }
+                    nj = t->p_no->label;
+                }
+                printf("\tbr i1 %%%d, label %%%d, label %%%d\n", this->opt_id_cnt, nj, yj);
+            }
+        }
     }
 
 };

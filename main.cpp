@@ -6,7 +6,6 @@
 #include "getword.h"
 #include "symbol_table.h"
 #include "Output_region.h"
-#define int1 long long int
 using namespace std;
 
 
@@ -14,21 +13,27 @@ int END;
 
 bool Error = false;
 
-bool put_top_num(stack<int>& s_num, stack<int>& s_tag, var_node& re, Output_region& out){
-    if (!s_num.size()) return false;
+bool put_top_num(stack<int>& s_num, stack<int>& s_tag, var_node& re){
+    if (s_num.empty()) return false;
     re = var_node(s_tag.top(), s_num.top());
     return true;
 }
 
-bool exp_stack_pop(stack<int>& s_num, stack<int>& s_tag, stack<int>& s_opt, stack<int>& s_opt_type, Output_region& out){  //弹出栈顶运算符号并运算
-    int id = out.get_new_id();
+bool exp_stack_pop(stack<int>& s_num, stack<int>& s_tag, stack<int>& s_opt, stack<int>& s_opt_type, Output_region*& out){  //弹出栈顶运算符号并运算
+    int id = out->get_new_id(),id2;
     if (s_opt_type.top()){  //如果是单目运算符，弹出一个
         var_node re;
-        if (!put_top_num(s_num,s_tag, re, out)) {Error = true;printf("Err at exp_stack_pop");return false;}
+        if (!put_top_num(s_num,s_tag, re)) {Error = true;printf("Err at exp_stack_pop");return false;}
         s_num.pop(); s_tag.pop();
         switch(s_opt.top()) {
-            case 20:out.insert_add(id, var_node(0,0), re); break;
-            case 21:out.insert_sub(id, var_node(0,0), re);break;
+            case 27:
+                out->insert_icmp_eq(id, re, var_node(0, 0));
+                id2 = id;
+                id = out->get_new_id();
+                out->insert_zext(id, var_node(1, id2));
+                break;
+            case 20:out->insert_add(id, var_node(0, 0), re); break;
+            case 21:out->insert_sub(id, var_node(0, 0), re);break;
             default:Error = true;printf("Err at exp_stack_pop");return false;
         }
         s_opt.pop(); s_opt_type.pop();
@@ -37,16 +42,53 @@ bool exp_stack_pop(stack<int>& s_num, stack<int>& s_tag, stack<int>& s_opt, stac
         return true;
     }
     var_node re1, re2;
-    if (!put_top_num(s_num,s_tag, re1, out)) {Error = true;printf("Err at exp_stack_pop");return false;}
+    if (!put_top_num(s_num,s_tag, re1)) {Error = true;printf("Err at exp_stack_pop");return false;}
     s_num.pop(); s_tag.pop();
-    if (!put_top_num(s_num,s_tag, re2, out)) {Error = true;printf("Err at exp_stack_pop");return false;}
+    if (!put_top_num(s_num,s_tag, re2)) {Error = true;printf("Err at exp_stack_pop");return false;}
     s_num.pop(); s_tag.pop();
     switch(s_opt.top()) {
-        case 20:out.insert_add(id, re2, re1);break;
-        case 21:out.insert_sub(id, re2, re1);break;
-        case 22:out.insert_mul(id, re2, re1);break;
-        case 23:out.insert_sdiv(id, re2, re1);break;
-        case 24:out.insert_srem(id, re2, re1);break;
+        case 20:out->insert_add(id, re2, re1);break;   // +
+        case 21:out->insert_sub(id, re2, re1);break;   // -
+        case 22:out->insert_mul(id, re2, re1);break;   // *
+        case 23:out->insert_sdiv(id, re2, re1);break;  // /
+        case 24:out->insert_srem(id, re2, re1);break;  // %
+        case 25: // >
+            //puts(">");
+            out->insert_icmp_sgt(id, re2, re1);
+            id2 = id;
+            id = out->get_new_id();
+            out->insert_zext(id, var_node(1, id2));
+            break;
+        case 26: // <
+            out->insert_icmp_slt(id, re2, re1);
+            id2 = id;
+            id = out->get_new_id();
+            out->insert_zext(id, var_node(1, id2));
+            break;
+        case 32: // >=
+            out->insert_icmp_sge(id, re2, re1);
+            id2 = id;
+            id = out->get_new_id();
+            out->insert_zext(id, var_node(1, id2));
+            break;
+        case 33: // <=
+            out->insert_icmp_sle(id, re2, re1);
+            id2 = id;
+            id = out->get_new_id();
+            out->insert_zext(id, var_node(1, id2));
+            break;
+        case 29: // ==
+            out->insert_icmp_eq(id, re2, re1);
+            id2 = id;
+            id = out->get_new_id();
+            out->insert_zext(id, var_node(1, id2));
+            break;
+        case 34: // !=
+            out->insert_icmp_ne(id, re2, re1);
+            id2 = id;
+            id = out->get_new_id();
+            out->insert_zext(id, var_node(1, id2));
+            break;
         default:Error = true;printf("Err at exp_stack_pop");return false;
     }
     s_num.push(id); s_tag.push(1);
@@ -54,19 +96,33 @@ bool exp_stack_pop(stack<int>& s_num, stack<int>& s_tag, stack<int>& s_opt, stac
     return true;
 }
 
-int opt_cmp_chart[][5]={
-        {1,1,0,0,0},
-        {1,1,0,0,0},
-        {1,1,1,1,1},
-        {1,1,1,1,1},
-        {1,1,1,1,1},
+int opt_cmp_chart[][11]={
+        {1,1,0,0,0,1,1,1,1,1,1},
+        {1,1,0,0,0,1,1,1,1,1,1},
+        {1,1,1,1,1,1,1,1,1,1,1},
+        {1,1,1,1,1,1,1,1,1,1,1},
+        {1,1,1,1,1,1,1,1,1,1,1},
+        {0,0,0,0,0,1,1,1,1,1,1},
+        {0,0,0,0,0,1,1,1,1,1,1},
+        {0,0,0,0,0,1,1,1,1,1,1},
+        {0,0,0,0,0,1,1,1,1,1,1},
+        {0,0,0,0,0,0,0,0,0,1,1},
+        {0,0,0,0,0,0,0,0,0,1,1},
 };
 
 bool opt_cmp(int opt_a,int opt_b){
-    return opt_cmp_chart[opt_a - 20][opt_b - 20];
+    int id_a = 0,id_b = 0;
+    if (opt_a >= 20 && opt_a <= 26 || opt_a == 29) id_a = opt_a - 20;
+    else if (opt_a >= 32 && opt_a <= 33) id_a = opt_a - 25;
+    else if (opt_a == 34) id_a = 10;
+    if (opt_b >= 20 && opt_b <= 26 || opt_b == 29) id_b = opt_b - 20;
+    else if (opt_b >= 32 && opt_b <= 33) id_b = opt_b - 25;
+    else if (opt_b == 34) id_b = 10;
+    return opt_cmp_chart[id_a][id_b];
 }
 
-int Exp(int head, int& re_id, int& re_type, Output_region& out, bool is_const = false){        //表达式求值
+int Exp(int head, int& re_id, int& re_type, Output_region*& out, bool is_const = false){        //表达式求值
+    //printf("%d\n",words[head].id);
     int pos = head, Par = 0, i = 0,is_last_num = false;
     stack<int> s_num, s_tag, s_opt, s_opt_type;
     while (true){
@@ -74,10 +130,10 @@ int Exp(int head, int& re_id, int& re_type, Output_region& out, bool is_const = 
         if (words[pos].id == 1){        //Ident
             symbol* p = sym_getIdent(words[pos].name,Space);
             if (p == nullptr) {Error = true; puts("Exp Ident not found"); return END;}
-            if (is_const && p->is_const == false) {Error = true; puts("Should not put a var in a constexp"); return END;}
+            if (is_const && !p->is_const) { Error = true; puts("Should not put a var in a constexp"); return END;}
             if (!p->is_func) {
-                int id = out.get_new_id();
-                out.insert_load(id,var_node(2,p->id));
+                int id = out->get_new_id();
+                out->insert_load(id,var_node(2,p->id));
                 s_num.push(id);
                 s_tag.push(1);
                 is_last_num = true;
@@ -116,14 +172,14 @@ int Exp(int head, int& re_id, int& re_type, Output_region& out, bool is_const = 
                 }
                 if (words[pos].id != 15) {Error = true; return END;} //)
                 //@load func
-                int id = out.get_new_id();
+                int id = out->get_new_id();
                 vector<var_node> params;
                 while (!param_id.empty()){
                     int p_id = param_id.front(); param_id.pop();
                     int p_type = param_type.front(); param_type.pop();
                     params.emplace_back(var_node(p_type, p_id));
                 }
-                out.insert_call_i32(id, p->name, params);
+                out->insert_call_i32(id, p->name, params);
                 s_num.push(id);
                 s_tag.push(1);
                 is_last_num = true;
@@ -150,7 +206,7 @@ int Exp(int head, int& re_id, int& re_type, Output_region& out, bool is_const = 
             s_opt_type.pop();
             is_last_num = true;
         }
-        else if (words[pos].id >= 20 && words[pos].id <= 24){  //opt
+        else if (words[pos].id >= 20 && words[pos].id <= 24 || words[pos].id >= 25 && words[pos].id <= 26 || words[pos].id == 29 || words[pos].id >= 32 && words[pos].id <= 34){  //opt
             if (!is_last_num){
                 s_opt.push(words[pos].id);
                 s_opt_type.push(1);
@@ -165,12 +221,18 @@ int Exp(int head, int& re_id, int& re_type, Output_region& out, bool is_const = 
                 is_last_num = false;
             }
         }
+        else if (words[pos].id == 27){ // !取反
+            s_opt.push(words[pos].id);
+            s_opt_type.push(1);
+            is_last_num = false;
+        }
         else break;
         pos++;
     }
     while (!s_opt.empty()){
         if (!exp_stack_pop(s_num,s_tag,s_opt,s_opt_type, out)) {Error = true; return END;}
     }
+    //printf("size: %d\n",s_num.size());
     if (s_num.size() != 1) {Error = true; puts("Wrong exp!"); return END;}
     if (Par) {Error = true; printf("%d %d\n",pos,Par); puts("Par not matched!"); return END;}
     re_id = s_num.top();
@@ -178,35 +240,35 @@ int Exp(int head, int& re_id, int& re_type, Output_region& out, bool is_const = 
     return pos;
 }
 
-int ConstExp(int head, int& re_id, int& re_type, Output_region& out){
+int ConstExp(int head, int& re_id, int& re_type, Output_region*& out){
     int pos = head;
     pos = Exp(pos,re_id,re_type, out,true);
     return pos;
 }
 
-int const_declare(int pos, Output_region& out){  //@插入常量声明
-    int id = out.get_new_id();
+int const_declare(int pos, Output_region*& out){  //@插入常量声明
+    int id = out->get_new_id();
     if (!sym_insert(words[pos].name, Space, id,true)) Error = true;
-    out.insert_alloc(id);
+    out->insert_alloc(id);
     return id;
 }
 
-void const_var_init(int id, const int& re_id, const int& re_type, Output_region& out){  //@插入常量初始化
-    out.insert_store(var_node(re_type, re_id), var_node(2, id));
+void const_var_init(int id, const int& re_id, const int& re_type, Output_region*& out){  //@插入常量初始化
+    out->insert_store(var_node(re_type, re_id), var_node(2, id));
 }
 
-int var_declare(int pos, Output_region& out){  //@插入变量声明
-    int id = out.get_new_id();
+int var_declare(int pos, Output_region*& out){  //@插入变量声明
+    int id = out->get_new_id();
     if (!sym_insert(words[pos].name, Space, id,false)) Error = true;
-    out.insert_alloc(id);
+    out->insert_alloc(id);
     return id;
 }
 
-void var_modify(int id, const int& re_id, const int& re_type, Output_region& out){    //@插入变量修改
-    out.insert_store(var_node(re_type, re_id), var_node(2, id));
+void var_modify(int id, const int& re_id, const int& re_type, Output_region*& out){    //@插入变量修改
+    out->insert_store(var_node(re_type, re_id), var_node(2, id));
 }
 
-int ConstDef(int head, Output_region& out){          //常量声明
+int ConstDef(int head, Output_region*& out){          //常量声明
     int pos = head;
     if (words[pos].id == 1){   //Ident
         int t_pos = pos++;
@@ -224,7 +286,7 @@ int ConstDef(int head, Output_region& out){          //常量声明
     return pos;
 }
 
-int VarDef(int head, Output_region& out){          //变量声明
+int VarDef(int head, Output_region*& out){          //变量声明
     int pos = head;
     if (words[pos].id == 1){   //Ident
         int t_pos = pos;
@@ -246,13 +308,13 @@ int VarDef(int head, Output_region& out){          //变量声明
     return pos;
 }
 
-int BType(int head, Output_region& out){             //数据类型
+int BType(int head, Output_region*& out){             //数据类型
     int pos = head;
     if (words[pos].id != 9) {Error = true; return END;}  //int
     return pos + 1;
 }
 
-int VarDecl(int head, Output_region& out){      //变量声明
+int VarDecl(int head, Output_region*& out){      //变量声明
     int pos = head;
     pos = BType(pos, out);
     if (Error) return END;
@@ -267,7 +329,7 @@ int VarDecl(int head, Output_region& out){      //变量声明
     return pos;
 }
 
-int ConstDecl(int head, Output_region& out){
+int ConstDecl(int head, Output_region*& out){
     int pos = head;
     if (words[pos].id == 11){ //const
         pos++;
@@ -286,7 +348,7 @@ int ConstDecl(int head, Output_region& out){
     return pos;
 }
 
-int Decl(int head, Output_region& out){
+int Decl(int head, Output_region*& out){
     int pos = head;
     if (words[pos].id == 11) pos = ConstDecl(pos, out); //const
     else if (words[pos].id == 9) pos = VarDecl(pos, out);  //int
@@ -294,11 +356,11 @@ int Decl(int head, Output_region& out){
     return pos;
 }
 
-void return_value(const int& re_id, const int& re_type, Output_region& out){   //@return
-    out.insert_ret(var_node(re_type, re_id));
+void return_value(const int& re_id, const int& re_type, Output_region*& out){   //@return
+    out->insert_ret(var_node(re_type, re_id));
 }
 
-int Voidfun(int head, Output_region& out){
+int Voidfun(int head, Output_region*& out){
     int pos = head;
     if (words[pos].id != 1) {Error = true; return END;}
     symbol* p = sym_getIdent(words[pos].name,Space);
@@ -333,20 +395,165 @@ int Voidfun(int head, Output_region& out){
     }
     if (words[pos++].id != 15) {Error = true; return END;} //)
     //@load func
-    //printf("\tcall void @%s(", p->name);
     vector<var_node> params;
     while (!param_id.empty()){
         int p_id = param_id.front(); param_id.pop();
         int p_type = param_type.front(); param_type.pop();
         params.emplace_back(var_node(p_type, p_id));
     }
-    out.insert_call_void(p->name, params);
+    out->insert_call_void(p->name, params);
     return pos;
 }
 
-int Stmt(int head, Output_region& out){
+int Block(int head, Output_region*& out);
+int Stmt(int head, Output_region*& out);
+
+Output_region* do_and_exp(stack<Output_region*>& s_block){
+    Output_region* B = s_block.top(); s_block.pop();
+    Output_region* A = s_block.top(); s_block.pop();
+    auto *re = new Output_region();
+    A->p_yes = B;
+    A->p_no = nullptr;
+    B->p_yes = nullptr;
+    B->p_no = nullptr;
+    re->insert_block(A);
+    re->insert_block(B);
+    re->label = A->label;
+    return re;
+}
+Output_region* do_or_exp(stack<Output_region*>& s_block){
+    Output_region* B = s_block.top(); s_block.pop();
+    Output_region* A = s_block.top(); s_block.pop();
+    auto *re = new Output_region();
+    A->p_yes = nullptr;
+    A->p_no = B;
+    B->p_yes = nullptr;
+    B->p_no = nullptr;
+    re->insert_block(A);
+    re->insert_block(B);
+    re->label = A->label;
+    return re;
+}
+
+int Cond(int head, Output_region*& out){
+    int pos = head, turn = 0, opt_num = out->opt_id_cnt;
+    bool first = true;
+    stack<Output_region*> s_block;
+    stack<int> s_opt;
+    while (true){
+        if (!turn){  //创建新的表达式模块
+            auto *p = new Output_region(opt_num);
+            p->set_is_jump();
+            if (first) first = false;
+            else p->set_label();
+            int re_id,re_type;
+            pos = Exp(pos, re_id, re_type, p);
+            if (Error) return END;
+            int id = p->get_new_id();
+            p->insert_icmp_eq(id, var_node(re_type, re_id), var_node(0, 0));
+            opt_num = p->opt_id_cnt;
+            s_block.push(p);
+        }
+        else if (words[pos].id == 30){   // And
+            while (!s_opt.empty()){
+                if (s_opt.top() == 30){  //And归约
+                    Output_region *p = do_and_exp(s_block);
+                    s_block.push(p);
+                    s_opt.pop();
+                }
+                else break;
+            }
+            s_opt.push(30);
+            pos++;
+        }
+        else if (words[pos].id == 31){   //Or
+            while (!s_opt.empty()){
+                if (s_opt.top() == 30){  //And归约
+                    Output_region *p = do_and_exp(s_block);
+                    s_block.push(p);
+                }
+                else{                    //Or归约
+                    Output_region *p = do_or_exp(s_block);
+                    s_block.push(p);
+                }
+                s_opt.pop();
+            }
+            s_opt.push(31);
+            pos++;
+        }
+        else break;
+        turn = !turn;
+    }
+    //剩下符号全部出栈
+    while (!s_opt.empty()){
+        if (s_opt.top() == 30){  //And归约
+            Output_region *p = do_and_exp(s_block);
+            s_block.push(p);
+        }
+        else{                    //Or归约
+            Output_region *p = do_or_exp(s_block);
+            s_block.push(p);
+        }
+        s_opt.pop();
+    }
+    if (s_block.size() != 1) {Error = true; puts("Error at Cond"); return END;}
+    Output_region *p = s_block.top();
+    out = p;
+    //out->insert_block(p);
+    return pos;
+}
+
+int If(int head, Output_region*& out){
     int pos = head;
-    if (words[pos].id == 8){ //return
+    if (words[pos++].id != 3) {Error = true; puts("Error at If name"); return END;}
+    if (words[pos++].id != 14) {Error = true; puts("Error at If LPar"); return END;}
+    auto *cond_out = new Output_region(out->opt_id_cnt);
+    pos = Cond(pos, cond_out); //计算cond表达式，返回输出模块cond_out
+    out->insert_block(cond_out);
+    if (words[pos++].id != 15) {Error = true; puts("Error at If RPar"); return END;}
+    //if stmt
+    Output_region *t = nullptr;
+    auto *stmt_out1 = new Output_region(out->opt_id_cnt);
+    stmt_out1->set_is_jump();
+    stmt_out1->set_label();
+    cond_out->p_yes = stmt_out1;
+    t = stmt_out1;
+    pos = Stmt(pos, stmt_out1);
+    stmt_out1 = t;
+    out->insert_block(stmt_out1);
+    //else stmt
+    auto *stmt_out2 = new Output_region(out->opt_id_cnt);
+    stmt_out2->set_is_jump();
+    stmt_out2->set_label();
+    cond_out->p_no = stmt_out2;
+    if (words[pos].id == 4){ //else
+        t = stmt_out2;
+        pos = Stmt(pos + 1, stmt_out2);
+        stmt_out2 = t;
+    }
+    out->insert_block(stmt_out2);
+    //other block
+    auto *other_out = new Output_region(out->opt_id_cnt);
+    other_out->set_label();
+    stmt_out1->p_jump = other_out;
+    stmt_out2->p_jump = other_out;
+    out->insert_block(other_out);
+    out = other_out;
+    //printf("pos id:%d\n",words[pos].id);
+    return pos;
+}
+
+int Stmt(int head, Output_region*& out){
+    int pos = head;
+    if (words[pos].id == 3){   //if
+        pos = If(pos, out);
+    }
+    //Block
+    else if (words[pos].id == 16){  //{
+        pos = Block(pos + 1, out);
+        if (words[pos++].id != 17) {Error = true; puts("Error at stmt1"); return END;}
+    }
+    else if (words[pos].id == 8){ //return
         int re_id,re_type;
         pos = Exp(pos + 1,re_id,re_type, out);
         if (Error) return END;
@@ -396,7 +603,7 @@ int Stmt(int head, Output_region& out){
     return pos;
 }
 
-int BlockItem(int head, Output_region& out){
+int BlockItem(int head, Output_region*& out){
     int pos = head;
     while (words[pos].id != 17 && !Error) {   //遇到}退出
         if (words[pos].id == 11 || words[pos].id == 9) {  //const ||  int
@@ -410,24 +617,12 @@ int BlockItem(int head, Output_region& out){
     return pos;
 }
 
-int Block(int head){
+int Block(int head, Output_region*& out){
     int pos = head;
-    if (words[pos].id == 16){   //{
-        printf("{\n");
-    }
-    else {Error = true; puts("Error at Block 1"); return END;}
-    pos++;
     layer_cnt++;
-    Output_region out;
     pos = BlockItem(pos, out);
     if (Error) return END;
-    out.output(0);
     layer_cnt--;
-    if (words[pos].id == 17){   //}
-        printf("}\n");
-    }
-    else {Error = true; puts("Error at Block 2"); return END;}
-    pos++;
     return pos;
 }
 
@@ -460,6 +655,7 @@ int FuncDef(int head){
     pos++;
     if (words[pos].id == 15){   //)
         printf(")");
+        pos++;
     }
     else {
         pos = FuncFParams(pos);  //参数列表
@@ -470,7 +666,18 @@ int FuncDef(int head){
     Space_cnt++;
     Space_pre[Space_cnt] = Space;
     Space = Space_cnt;
-    pos = Block(pos + 1);
+    auto *out = new Output_region();
+    if (words[pos++].id == 16){   //{
+        printf("{\n");
+    }
+    else {Error = true; puts("Error at Block 1"); return END;}
+    pos = Block(pos, out);
+    while (out->pre != nullptr) out = out->pre;
+    out->output();
+    if (words[pos++].id == 17){   //}
+        printf("}\n");
+    }
+    else {Error = true; puts("Error at Block 2"); return END;}
     return pos;
 }
 
