@@ -86,6 +86,7 @@ int Global_Exp(int head, int& re_num){        //表达式求值
             symbol* p = sym_getIdent(words[pos].name, 0);
             if (p == nullptr) {Error = true; puts("Global Exp Ident not found"); return END;}
             if (p->is_func) {Error = true; return END;}
+            if (!p->is_const) {Error = true; puts("global exp should be const"); return END;}
             s_num.push(p->id);
             is_last_num = true;
         }
