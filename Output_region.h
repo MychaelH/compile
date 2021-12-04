@@ -10,12 +10,19 @@
 #include<cstring>
 static int opt_id_cnt;
 struct var_node{
-    int type{};  //0:i32 id  1:i32 %id  2:i32* %id
-    int id{};
+    int type{0};  //0:i32 id  1:i32 %id  2:i32* %id 3:@a
+    int id{0};
+    char* name{};
     var_node()= default;
     var_node(int t,int i){
         this->type = t;
         this->id = i;
+        name = nullptr;
+    }
+    explicit var_node(const char* s){
+        this->type = 3;
+        this->name = new char[sizeof(char) * (strlen(s) + 2)];
+        strcpy(this->name, s);
     }
 };
 
@@ -97,7 +104,7 @@ struct Output_region{
     void set_is_jump(){
         is_jump = true;
     }
-    int get_new_id(){
+    static int get_new_id(){
         return ++opt_id_cnt;
     }
     void insert_alloc(int id){
@@ -158,7 +165,6 @@ struct Output_region{
         out.emplace_back(output_unit(1, inside_region));
         inside_region->pre = this;
     }
-
     void output(){
         if (is_labeled && this->label != -1){
             printf("%d:\n",this->label);
@@ -174,17 +180,20 @@ struct Output_region{
                         printf("\t%%%d = alloca i32\n",u.left_id);
                         opt_id_cnt++;
                         break;
-                    case 1:
+                    case 1:  //store
                         if (u.opt_num[0].type == 0){
-                            printf("\tstore i32 %d, i32* %%%d\n", u.opt_num[0].id, u.opt_num[1].id);
+                            if (u.opt_num[1].type == 3) printf("\tstore i32 %d, i32* @%s\n", u.opt_num[0].id, u.opt_num[1].name);
+                            else printf("\tstore i32 %d, i32* %%%d\n", u.opt_num[0].id, u.opt_num[1].id);
                         }
                         else if (u.opt_num[0].type == 1){
-                            printf("\tstore i32 %%%d, i32* %%%d\n", u.opt_num[0].id, u.opt_num[1].id);
+                            if (u.opt_num[1].type == 3) printf("\tstore i32 %%%d, i32* @%s\n", u.opt_num[0].id, u.opt_num[1].name);
+                            else printf("\tstore i32 %%%d, i32* %%%d\n", u.opt_num[0].id, u.opt_num[1].id);
                         }
                         else puts("Error at output1");
                         break;
-                    case 2:
-                        printf("\t%%%d = load i32, i32* %%%d\n",u.left_id,u.opt_num[0].id);
+                    case 2:  //load
+                        if (u.opt_num[0].type == 3) printf("\t%%%d = load i32, i32* @%s\n",u.left_id,u.opt_num[0].name);
+                        else printf("\t%%%d = load i32, i32* %%%d\n",u.left_id,u.opt_num[0].id);
                         opt_id_cnt++;
                         break;
                     case 3:
