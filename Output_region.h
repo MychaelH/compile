@@ -32,7 +32,7 @@ struct output_unit{
     int type{0};  //0:line 1:block
     int opt_t{}; //0:alloc 1:store 2:load 3:call void 4:call i32 5:ret
     //6:add 7:sub 8:mul 9:sdiv 10:srem 11:zext 12:icmp eq
-    //13:ne 14:sgt 15:slt 16:sge 17:sle
+    //13:ne 14:sgt 15:slt 16:sge 17:sle 18:br 19:label
     //icmp....
     int left_id{};
     char *name{nullptr};
@@ -160,6 +160,12 @@ struct Output_region{
     }
     void insert_icmp_sle(int id, var_node a, var_node b){
         out.emplace_back(output_unit(0, 17, a, b, id));
+    }
+    void insert_br(int id){
+        out.emplace_back(output_unit(0, 18, id));
+    }
+    void insert_label(int id){
+        out.emplace_back(output_unit(0, 19, id));
     }
     void insert_block(Output_region* inside_region){
         out.emplace_back(output_unit(1, inside_region));
@@ -407,6 +413,13 @@ struct Output_region{
                             if (!j) printf(", ");
                         }
                         printf("\n");
+                        opt_id_cnt++;
+                        break;
+                    case 18:
+                        printf("\tbr label %%%d\n",u.left_id);
+                        break;
+                    case 19:
+                        printf("%d:\n",u.left_id);
                         opt_id_cnt++;
                         break;
                     default:puts("Error at output");break;

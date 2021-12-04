@@ -795,10 +795,42 @@ int If(int head, Output_region*& out){
     return pos;
 }
 
+int While(int head, Output_region*& out){
+    int pos = head;
+    if (words[pos++].id != 5) {Error = true; puts("Error at While name"); return END;}
+    if (words[pos++].id != 14) {Error = true; puts("Error at While LPar"); return END;}
+    int start_label = Output_region::get_new_id();
+    out->insert_br(start_label);
+    out->insert_label(start_label);
+    auto *cond_out = new Output_region();
+    pos = Cond(pos, cond_out); //计算cond表达式，返回输出模块cond_out
+    out->insert_block(cond_out);
+    if (words[pos++].id != 15) {Error = true; puts("Error at While RPar"); return END;}
+    //if stmt
+    Output_region *t;
+    auto *stmt_out = new Output_region();
+    stmt_out->set_label();
+    cond_out->p_yes = stmt_out;
+    t = stmt_out;
+    pos = Stmt(pos, stmt_out);
+    stmt_out = t;
+    stmt_out->insert_br(start_label);
+    out->insert_block(stmt_out);
+    auto *other_out = new Output_region();
+    other_out->set_label();
+    cond_out->p_no = other_out;
+    out->insert_block(other_out);
+    out = other_out;
+    return pos;
+}
+
 int Stmt(int head, Output_region*& out){
     int pos = head;
     if (words[pos].id == 3){   //if
         pos = If(pos, out);
+    }
+    else if (words[pos].id == 5){ //while
+        pos = While(pos, out);
     }
     //Block
     else if (words[pos].id == 16){  //{
@@ -968,11 +1000,11 @@ int CompUnit(int head){
 }
 
 int main(){
-    //freopen("in.txt","r",stdin);
+#ifdef LOCAL
+    freopen("in.txt","r",stdin);
     //freopen("out.txt","w",stdout);
-    //printf("declare void @putch(i32)\ndefine i32 @main(){\n");
+#endif
     get_sym();
-    //printf("\tret i32 0\n}\n");
     Error = false;
     END = words_len;
     CompUnit(1);
