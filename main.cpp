@@ -799,14 +799,18 @@ int While(int head, Output_region*& out){
     int pos = head;
     if (words[pos++].id != 5) {Error = true; puts("Error at While name"); return END;}
     if (words[pos++].id != 14) {Error = true; puts("Error at While LPar"); return END;}
-    int start_label = Output_region::get_new_id();
-    out->insert_br(start_label);
-    out->insert_label(start_label);
+    //while起始标记
+    st_while[++while_pos] = ++while_id_cnt;
+    while_head[st_while[while_pos]] = Output_region::get_new_id();
+    out->insert_br(while_head[st_while[while_pos]]);
+    out->insert_label(while_head[st_while[while_pos]]);
+
+    //计算逻辑式
     auto *cond_out = new Output_region();
     pos = Cond(pos, cond_out); //计算cond表达式，返回输出模块cond_out
     out->insert_block(cond_out);
     if (words[pos++].id != 15) {Error = true; puts("Error at While RPar"); return END;}
-    //if stmt
+    //while stmt
     Output_region *t;
     auto *stmt_out = new Output_region();
     stmt_out->set_label();
@@ -814,13 +818,33 @@ int While(int head, Output_region*& out){
     t = stmt_out;
     pos = Stmt(pos, stmt_out);
     stmt_out = t;
-    stmt_out->insert_br(start_label);
+    stmt_out->insert_br(while_head[st_while[while_pos]]);
     out->insert_block(stmt_out);
+
+    //后继模块
     auto *other_out = new Output_region();
     other_out->set_label();
+    while_out[st_while[while_pos]] = other_out->label;
     cond_out->p_no = other_out;
     out->insert_block(other_out);
     out = other_out;
+    while_pos--;  //退出当前while层
+    return pos;
+}
+
+int Break(int head, Output_region*& out){
+    int pos = head;
+    if (words[pos++].id != 6) {Error = true; puts("Break Ident not found"); return END;}
+    if (while_pos <= 0) {Error = true; puts("Break should be in while"); return END;}
+    out->insert_br_while_out(st_while[while_pos]);
+    return pos;
+}
+
+int Continue(int head, Output_region*& out){
+    int pos = head;
+    if (words[pos++].id != 7) {Error = true; puts("While Ident not found"); return END;}
+    if (while_pos <= 0) {Error = true; puts("While should be in while"); return END;}
+    out->insert_br_while_head(st_while[while_pos]);
     return pos;
 }
 
@@ -831,6 +855,12 @@ int Stmt(int head, Output_region*& out){
     }
     else if (words[pos].id == 5){ //while
         pos = While(pos, out);
+    }
+    else if (words[pos].id == 6){  //break
+        pos = Break(pos, out);
+    }
+    else if (words[pos].id == 7){  //continue
+        pos = Continue(pos, out);
     }
     //Block
     else if (words[pos].id == 16){  //{

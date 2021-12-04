@@ -9,6 +9,12 @@
 #include<vector>
 #include<cstring>
 static int opt_id_cnt;
+//while循环记录
+static int while_head[10005],while_out[10005],st_while[10005],while_id_cnt,while_pos;
+//防止一块输出多个br
+static int cnt_br;
+
+
 struct var_node{
     int type{0};  //0:i32 id  1:i32 %id  2:i32* %id 3:@a
     int id{0};
@@ -167,6 +173,12 @@ struct Output_region{
     void insert_label(int id){
         out.emplace_back(output_unit(0, 19, id));
     }
+    void insert_br_while_head(int id){
+        out.emplace_back(output_unit(0, 20, id));
+    }
+    void insert_br_while_out(int id){
+        out.emplace_back(output_unit(0, 21, id));
+    }
     void insert_block(Output_region* inside_region){
         out.emplace_back(output_unit(1, inside_region));
         inside_region->pre = this;
@@ -175,6 +187,7 @@ struct Output_region{
         if (is_labeled && this->label != -1){
             printf("%d:\n",this->label);
             opt_id_cnt++;
+            cnt_br = 0;
         }
         for (auto & u : out){
             if (u.type == 1){
@@ -246,7 +259,7 @@ struct Output_region{
                         else puts("Error at output5");
                         opt_id_cnt++;
                         break;
-                    case 6:
+                    case 6: //add
                         printf("\t%%%d = add i32 ", u.left_id);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
@@ -261,7 +274,7 @@ struct Output_region{
                         printf("\n");
                         opt_id_cnt++;
                         break;
-                    case 7:
+                    case 7: //sub
                         printf("\t%%%d = sub i32 ", u.left_id);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
@@ -276,7 +289,7 @@ struct Output_region{
                         printf("\n");
                         opt_id_cnt++;
                         break;
-                    case 8:
+                    case 8:  //mul
                         printf("\t%%%d = mul i32 ", u.left_id);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
@@ -291,7 +304,7 @@ struct Output_region{
                         printf("\n");
                         opt_id_cnt++;
                         break;
-                    case 9:
+                    case 9:  //sdiv
                         printf("\t%%%d = sdiv i32 ", u.left_id);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
@@ -306,7 +319,7 @@ struct Output_region{
                         printf("\n");
                         opt_id_cnt++;
                         break;
-                    case 10:
+                    case 10:  //srem
                         printf("\t%%%d = srem i32 ", u.left_id);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
@@ -321,11 +334,11 @@ struct Output_region{
                         printf("\n");
                         opt_id_cnt++;
                         break;
-                    case 11:
+                    case 11:  //zext
                         printf("\t%%%d = zext i1 %%%d to i32\n", u.left_id, u.opt_num[0].id);
                         opt_id_cnt++;
                         break;
-                    case 12:
+                    case 12:   //eq
                         printf("\t%%%d = icmp eq i32 ", u.left_id);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
@@ -340,7 +353,7 @@ struct Output_region{
                         printf("\n");
                         opt_id_cnt++;
                         break;
-                    case 13:
+                    case 13:  //ne
                         printf("\t%%%d = icmp ne i32 ", u.left_id);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
@@ -355,7 +368,7 @@ struct Output_region{
                         printf("\n");
                         opt_id_cnt++;
                         break;
-                    case 14:
+                    case 14: //sgt
                         printf("\t%%%d = icmp sgt i32 ", u.left_id);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
@@ -370,7 +383,7 @@ struct Output_region{
                         printf("\n");
                         opt_id_cnt++;
                         break;
-                    case 15:
+                    case 15:  //slt
                         printf("\t%%%d = icmp slt i32 ", u.left_id);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
@@ -385,7 +398,7 @@ struct Output_region{
                         printf("\n");
                         opt_id_cnt++;
                         break;
-                    case 16:
+                    case 16:  //sge
                         printf("\t%%%d = icmp sge i32 ", u.left_id);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
@@ -400,7 +413,7 @@ struct Output_region{
                         printf("\n");
                         opt_id_cnt++;
                         break;
-                    case 17:
+                    case 17:  //sle
                         printf("\t%%%d = icmp sle i32 ", u.left_id);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
@@ -415,12 +428,28 @@ struct Output_region{
                         printf("\n");
                         opt_id_cnt++;
                         break;
-                    case 18:
-                        printf("\tbr label %%%d\n",u.left_id);
+                    case 18:  //br
+                        if (cnt_br < 1){
+                            printf("\tbr label %%%d\n",u.left_id);
+                            cnt_br++;
+                        }
                         break;
                     case 19:
                         printf("%d:\n",u.left_id);
                         opt_id_cnt++;
+                        cnt_br = 0;
+                        break;
+                    case 20:
+                        if (cnt_br < 1){
+                            printf("\tbr label %%%d\n",while_head[u.left_id]);
+                            cnt_br++;
+                        }
+                        break;
+                    case 21:
+                        if (cnt_br < 1){
+                            printf("\tbr label %%%d\n",while_out[u.left_id]);
+                            cnt_br++;
+                        }
                         break;
                     default:puts("Error at output");break;
                 }
@@ -436,7 +465,10 @@ struct Output_region{
                     puts("Wrong at jump???");
                     return;
                 }
-                printf("\tbr label %%%d\n", t->p_jump->label);
+                if (cnt_br < 1){
+                    printf("\tbr label %%%d\n", t->p_jump->label);
+                    cnt_br++;
+                }
             }
             else {  //分支跳
                 int yj, nj;
@@ -470,7 +502,9 @@ struct Output_region{
                     }
                     nj = t->p_no->label;
                 }
-                printf("\tbr i1 %%%d, label %%%d, label %%%d\n", opt_id_cnt, nj, yj);
+                if (cnt_br < 1){
+                    printf("\tbr i1 %%%d, label %%%d, label %%%d\n", opt_id_cnt, nj, yj);
+                }
             }
         }
     }
