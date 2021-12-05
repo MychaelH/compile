@@ -39,6 +39,10 @@ struct output_unit{
     int opt_t{}; //0:alloc 1:store 2:load 3:call void 4:call i32 5:ret
     //6:add 7:sub 8:mul 9:sdiv 10:srem 11:zext 12:icmp eq
     //13:ne 14:sgt 15:slt 16:sge 17:sle 18:br 19:label
+    //20:br break  21:br continue
+    //22:alloca 1D  23:alloc 2D
+    //24:getelementptr 1D  25:getelementptr 2D
+    //26:memset
     //icmp....
     int left_id{};
     char *name{nullptr};
@@ -55,6 +59,33 @@ struct output_unit{
         this->opt_t = opt_t;
         (this->opt_num).push_back(a);
         (this->opt_num).push_back(b);
+        this->left_id = left_id;
+    }
+    output_unit(int type, int opt_t, var_node a, var_node b, var_node c, int left_id = 0){
+        this->type = type;
+        this->opt_t = opt_t;
+        (this->opt_num).push_back(a);
+        (this->opt_num).push_back(b);
+        (this->opt_num).push_back(c);
+        this->left_id = left_id;
+    }
+    output_unit(int type, int opt_t, var_node a, var_node b, var_node c, var_node d, int left_id = 0){
+        this->type = type;
+        this->opt_t = opt_t;
+        (this->opt_num).push_back(a);
+        (this->opt_num).push_back(b);
+        (this->opt_num).push_back(c);
+        (this->opt_num).push_back(d);
+        this->left_id = left_id;
+    }
+    output_unit(int type, int opt_t, var_node a, var_node b, var_node c, var_node d, var_node e, int left_id = 0){
+        this->type = type;
+        this->opt_t = opt_t;
+        (this->opt_num).push_back(a);
+        (this->opt_num).push_back(b);
+        (this->opt_num).push_back(c);
+        (this->opt_num).push_back(d);
+        (this->opt_num).push_back(e);
         this->left_id = left_id;
     }
     output_unit(int type, int opt_t, int left_id, var_node a){
@@ -178,6 +209,21 @@ struct Output_region{
     }
     void insert_br_while_out(int id){
         out.emplace_back(output_unit(0, 21, id));
+    }
+    void insert_alloca_1(int id,var_node a){
+        out.emplace_back(output_unit(0,22,id,a));
+    }
+    void insert_alloca_2(int id,var_node a,var_node b){
+        out.emplace_back(output_unit(0, 23, a, b, id));
+    }
+    void insert_getele_1(int id,var_node a, var_node b, var_node pos){ //维度大小+对象+位移
+        out.emplace_back(output_unit(0, 24, a, b, pos, id));
+    }
+    void insert_getele_2(int id, var_node a, var_node b, var_node c, var_node pos1, var_node pos2){ //维度大小+对象+位移
+        out.emplace_back(output_unit(0, 25, a, b, c, pos1, pos2, id));
+    }
+    void insert_memset(var_node a,var_node b){
+        out.emplace_back(output_unit(0,26,a,b));
     }
     void insert_block(Output_region* inside_region){
         out.emplace_back(output_unit(1, inside_region));
@@ -450,6 +496,54 @@ struct Output_region{
                             printf("\tbr label %%%d\n",while_out[u.left_id]);
                             cnt_br++;
                         }
+                        break;
+                    case 22:
+                        printf("\t%%%d = alloca [%d x i32]\n", u.left_id, u.opt_num[0].id);
+                        break;
+                    case 23:
+                        printf("\t%%%d = alloca [%d x [%d x i32]]\n", u.left_id, u.opt_num[0].id, u.opt_num[1].id);
+                        break;
+                    case 24:
+                        if (u.opt_num[1].type == 1){
+                            printf("\t%%%d = getelementptr [%d x i32], [%d x i32]* %%%d, i32 0, i32 ", u.left_id, u.opt_num[0].id, u.opt_num[0].id, u.opt_num[1].id);
+                        }
+                        else if (u.opt_num[1].type == 3){
+                            printf("\t%%%d = getelementptr [%d x i32], [%d x i32]* @%s, i32 0, i32 ", u.left_id, u.opt_num[0].id, u.opt_num[0].id, u.opt_num[1].name);
+                        }
+                        else puts("Error at output24");
+                        if (u.opt_num[2].type == 0){
+                            printf("%d\n",u. opt_num[2].id);
+                        }
+                        else if (u.opt_num[2].type == 1){
+                            printf("%%%d\n",u. opt_num[2].id);
+                        }
+                        else puts("Error at output24");
+                        break;
+                    case 25:
+                        if (u.opt_num[2].type == 1) {
+                            printf("\t%%%d = getelementptr [%d x [%d x i32]], [%d x [%d x i32]]* %%%d, i32 0, i32 ",u.left_id, u.opt_num[0].id, u.opt_num[1].id, u.opt_num[0].id, u.opt_num[1].id,u.opt_num[2].id);
+                        }
+                        else if (u.opt_num[2].type == 3) {
+                            printf("\t%%%d = getelementptr [%d x [%d x i32]], [%d x [%d x i32]]* @%s, i32 0, i32 ",u.left_id, u.opt_num[0].id, u.opt_num[1].id, u.opt_num[0].id, u.opt_num[1].id,u.opt_num[2].name);
+                        }
+                        else puts("Error at output25");
+                        if (u.opt_num[3].type == 0){
+                            printf("%d, i32 ",u. opt_num[3].id);
+                        }
+                        else if (u.opt_num[3].type == 1){
+                            printf("%%%d, i32 ",u. opt_num[3].id);
+                        }
+                        else puts("Error at output25");
+                        if (u.opt_num[4].type == 0){
+                            printf("%d\n",u. opt_num[4].id);
+                        }
+                        else if (u.opt_num[4].type == 1){
+                            printf("%%%d\n",u. opt_num[4].id);
+                        }
+                        else puts("Error at output25");
+                        break;
+                    case 26:
+                        printf("\tcall void @memset(i32* %%%d, i32 0, i32 %d)\n", u.opt_num[0].id, u.opt_num[1].id);
                         break;
                     default:puts("Error at output");break;
                 }

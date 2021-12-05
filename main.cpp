@@ -26,7 +26,19 @@ int opt_cmp_chart[][11]={
         {0,0,0,0,0,0,0,0,0,1,1},
 };
 
-bool Global_exp_stack_pop(stack<int>& s_num, stack<int>& s_opt, stack<int>& s_opt_type){  //弹出栈顶运算符号并运算
+
+bool opt_cmp(int opt_a,int opt_b){
+    int id_a = 0,id_b = 0;
+    if (opt_a >= 20 && opt_a <= 26 || opt_a == 29) id_a = opt_a - 20;
+    else if (opt_a >= 32 && opt_a <= 33) id_a = opt_a - 25;
+    else if (opt_a == 34) id_a = 10;
+    if (opt_b >= 20 && opt_b <= 26 || opt_b == 29) id_b = opt_b - 20;
+    else if (opt_b >= 32 && opt_b <= 33) id_b = opt_b - 25;
+    else if (opt_b == 34) id_b = 10;
+    return opt_cmp_chart[id_a][id_b];
+}
+
+bool Const_exp_stack_pop(stack<int>& s_num, stack<int>& s_opt, stack<int>& s_opt_type){  //弹出栈顶运算符号并运算
     if (s_opt_type.top()){  //如果是单目运算符，弹出一个
         if (s_num.empty()) {Error = true;printf("Err at exp_stack_pop");return false;}
         int a = s_num.top();
@@ -65,29 +77,38 @@ bool Global_exp_stack_pop(stack<int>& s_num, stack<int>& s_opt, stack<int>& s_op
     return true;
 }
 
-
-bool Global_opt_cmp(int opt_a,int opt_b){
-    int id_a = 0,id_b = 0;
-    if (opt_a >= 20 && opt_a <= 26 || opt_a == 29) id_a = opt_a - 20;
-    else if (opt_a >= 32 && opt_a <= 33) id_a = opt_a - 25;
-    else if (opt_a == 34) id_a = 10;
-    if (opt_b >= 20 && opt_b <= 26 || opt_b == 29) id_b = opt_b - 20;
-    else if (opt_b >= 32 && opt_b <= 33) id_b = opt_b - 25;
-    else if (opt_b == 34) id_b = 10;
-    return opt_cmp_chart[id_a][id_b];
-}
-
-int Global_Exp(int head, int& re_num){        //表达式求值
+int ConstExp(int head, int& re_num){        //常量表达式求值
     int pos = head, Par = 0, i = 0,is_last_num = false;
     stack<int> s_num, s_opt, s_opt_type;
     while (true){
         i++;
         if (words[pos].id == 1){        //Ident
-            symbol* p = sym_getIdent(words[pos].name, 0);
+            symbol* p = sym_getIdent(words[pos].name, Space);
             if (p == nullptr) {Error = true; puts("Global Exp Ident not found"); return END;}
             if (p->is_func) {Error = true; return END;}
             if (!p->is_const) {Error = true; puts("global exp should be const"); return END;}
-            s_num.push(p->id);
+            if (p->dimen.dimen == 0) {
+                s_num.push(p->id);
+            }
+            else if (p->dimen.dimen == 1){
+                if (words[++pos].id != 18) {Error = true; puts("Exp [ not found"); return END;}
+                int a_num;
+                pos = ConstExp(pos + 1, a_num);
+                if (words[pos].id != 19) {Error = true; puts("Exp ] not found"); return END;}
+                s_num.push(p->nums[a_num]);
+            }
+            else if (p->dimen.dimen == 2){
+                if (words[++pos].id != 18) {Error = true; puts("Exp [ not found"); return END;}
+                int a_num;
+                pos = ConstExp(pos + 1, a_num);
+                if (words[pos].id != 19) {Error = true; puts("Exp ] not found"); return END;}
+                if (words[++pos].id != 18) {Error = true; puts("Exp [ not found"); return END;}
+                int b_num;
+                pos = ConstExp(pos + 1, b_num);
+                if (words[pos].id != 19) {Error = true; puts("Exp ] not found"); return END;}
+                s_num.push(p->nums[a_num * p->dimen.len2 + b_num]);
+            }
+            else {Error = true; return END;}
             is_last_num = true;
         }
         else if (words[pos].id == 2){   //num
@@ -104,7 +125,7 @@ int Global_Exp(int head, int& re_num){        //表达式求值
             if (Par - 1 < 0) break;
             Par--;
             while (s_opt.top() != 14){  //弹出符号直至(
-                if (!Global_exp_stack_pop(s_num,s_opt,s_opt_type)) return false;
+                if (!Const_exp_stack_pop(s_num,s_opt,s_opt_type)) return false;
             }
             s_opt.pop();
             s_opt_type.pop();
@@ -117,8 +138,8 @@ int Global_Exp(int head, int& re_num){        //表达式求值
                 is_last_num = false;
             }
             else {
-                while (!s_opt.empty() && (s_opt_type.top() == 1 || (s_opt.top() != 14 && Global_opt_cmp(s_opt.top(), words[pos].id)))) {
-                    if (!Global_exp_stack_pop(s_num,s_opt,s_opt_type)) return false;
+                while (!s_opt.empty() && (s_opt_type.top() == 1 || (s_opt.top() != 14 && opt_cmp(s_opt.top(), words[pos].id)))) {
+                    if (!Const_exp_stack_pop(s_num,s_opt,s_opt_type)) return false;
                 }
                 s_opt.push(words[pos].id);
                 s_opt_type.push(0);
@@ -134,7 +155,7 @@ int Global_Exp(int head, int& re_num){        //表达式求值
         pos++;
     }
     while (!s_opt.empty()){
-        if (!Global_exp_stack_pop(s_num, s_opt, s_opt_type)) {Error = true; return END;}
+        if (!Const_exp_stack_pop(s_num, s_opt, s_opt_type)) {Error = true; return END;}
     }
     if (s_num.size() != 1) {Error = true; puts("Wrong Global_exp!"); return END;}
     if (Par) {Error = true; printf("%d %d\n",pos,Par); puts("Par not matched!"); return END;}
@@ -143,13 +164,135 @@ int Global_Exp(int head, int& re_num){        //表达式求值
 }
 
 void Global_const_declare(int head, int num = 0){
-    if (!sym_insert(words[head].name, 0, num, true)) Error = true;
+    if (!sym_insert(words[head].name, 0, num, d0, true)) Error = true;
     //printf("@%s = global i32 %d\n", words[head].name, num);
 }
 
 void Global_var_declare(int head, int num = 0){
-    if (!sym_insert(words[head].name, 0, num)) Error = true;
+    if (!sym_insert(words[head].name, 0, num, d0)) Error = true;
     printf("@%s = global i32 %d\n", words[head].name, num);
+}
+
+int Global_Array_Def(int head, bool is_const = false){
+    int pos = head;
+    if (words[pos].id != 1) {Error = true; puts("lack array ident"); return END;}
+    if (is_const) printf("@%s = constant ",words[pos].name);
+    else printf("@%s = global",words[pos].name);
+    // [
+    if (words[++pos].id != 18) {Error = true; puts("lack array ["); return END;}
+    int len1;
+    pos = ConstExp(pos + 1,len1);
+    if (Error) return END;
+    if (words[pos++].id != 19) {Error = true; puts("lack array ]"); return END;}
+    if (words[pos].id == 12){ // = 一维数组初始化
+        int *nums = new int[len1];
+        memset(nums, 0, sizeof(nums));
+        printf("[%d x i32] ", len1);
+        // {
+        if (words[++pos].id != 16){Error = true; puts("lack array {"); return END;}
+        if (words[++pos].id == 17){ // 直接跟}   0初始化
+            printf("zeroinitializer\n");
+        }
+        else {
+            printf("[");
+            for (int i = 0; i < len1; i++){
+                if (words[pos].id == 17){  //}
+                    while (i < len1){
+                        printf(", i32 0");
+                        i++;
+                    }
+                    break;
+                }
+                if (i){
+                    // ,
+                    if (words[pos++].id != 28){Error = true; puts("lack array ,"); return END;}
+                }
+                int r_num;
+                pos = ConstExp(pos, r_num);
+                nums[i] = r_num;
+                if (i) printf(", ");
+                printf("i32 %d",r_num);
+            }
+            if (words[pos++].id != 17) {Error = true; puts("lack array }"); return END;}
+            printf("]\n");
+        }
+        if (!sym_insert(words[head].name, Space, 0, Dimen(len1), is_const)){Error = true; puts("ident exists."); return END;}
+        symbol *p = sym_getIdent(words[head].name, Space);
+        p->nums = nums;
+    }
+    else if (words[pos].id == 18){ // [ 二维数组
+        int len2;
+        pos = ConstExp(pos + 1, len2);
+        if (Error) return END;
+        if (words[pos++].id != 19) {Error = true; puts("lack array ]"); return END;}
+        int *nums = new int[len1 * len2];
+        memset(nums, 0, sizeof(nums));
+        printf("[%d x [%d x i32]] ", len1, len2);
+        if (words[pos].id == 12) { // = 二维数组初始化
+            // {
+            if (words[++pos].id != 16) {Error = true;puts("lack array {");return END;}
+            if (words[++pos].id == 17) { // 直接跟}   0初始化
+                printf("zeroinitializer\n");
+            }
+            else {
+                printf("[");
+                for (int i = 0; i < len1; i++){
+                    if (words[pos].id == 17) { // 遇到}结束
+                        while (i < len1) {
+                            printf(", [%d x i32] zeroinitializer",len2);
+                            i++;
+                        }
+                        break;
+                    }
+                    if (i){
+                        //,
+                        if (words[pos++].id != 28){Error = true; puts("lack array ,"); return END;}
+                    }
+                    if (i) printf(", ");
+                    printf("[%d x i32] ",len2);
+                    if (words[pos++].id != 16) {Error = true;puts("lack array {249");return END;}
+                    printf("[");
+                    for (int j = 0; j < len2; j++){
+                        if (words[pos].id == 17){  //}
+                            while (j < len2){
+                                printf(", i32 0");
+                                j++;
+                            }
+                            break;
+                        }
+                        if (j){
+                            // ,
+                            if (words[pos++].id != 28){Error = true; puts("lack array ,"); return END;}
+                        }
+                        int r_num;
+                        pos = ConstExp(pos, r_num);
+                        nums[i * len2 + j] = r_num;
+                        if (j) printf(", ");
+                        printf("i32 %d",r_num);
+                    }
+                    printf("]");
+                    if (words[pos++].id != 17) {Error = true;puts("lack array }");return END;}
+                }
+                printf("]\n");
+            }
+            if (words[pos++].id != 17) {Error = true;puts("lack array }");return END;}
+        }
+        else { //二维数组0初始化
+            printf("zeroinitializer\n");
+        }
+        if (!sym_insert(words[head].name, Space, 0, Dimen(len1, len2), is_const)){Error = true; puts("ident exists."); return END;}
+        symbol *p = sym_getIdent(words[head].name, Space);
+        p->nums = nums;
+    }
+    else { //一维数组0初始化
+        int *nums = new int[len1];
+        memset(nums, 0, sizeof(nums));
+        printf("[%d x i32] zeroinitializer\n", len1);
+        if (!sym_insert(words[head].name, Space, 0, Dimen(len1), is_const)){Error = true; puts("ident exists."); return END;}
+        symbol *p = sym_getIdent(words[head].name, Space);
+        p->nums = nums;
+    }
+    return pos;
 }
 
 int Global_ConstDef(int head){          //常量声明
@@ -158,10 +301,13 @@ int Global_ConstDef(int head){          //常量声明
         int t_pos = pos++;
         if (words[pos].id == 12){ //=
             int re_num;
-            pos = Global_Exp(pos + 1, re_num); //@
+            pos = ConstExp(pos + 1, re_num); //@
             if (Error) return END;
             Global_const_declare(t_pos, re_num);    //@
             if (Error) {puts("var name already exists."); return END;}
+        }
+        else if (words[pos].id == 18){  // [
+            pos = Global_Array_Def(pos - 1, true);
         }
         else {Error = true; return END;}
     }
@@ -176,10 +322,13 @@ int Global_VarDef(int head){          //变量声明
         pos++;
         if (words[pos].id == 12){ //=
             int re_num;
-            pos = Global_Exp(pos + 1, re_num); //@
+            pos = ConstExp(pos + 1, re_num); //@
             if (Error) return END;
             Global_var_declare(t_pos, re_num);    //@
             if (Error) {puts("var name already exists."); return END;}
+        }
+        else if (words[pos].id == 18){  // [
+            pos = Global_Array_Def(pos - 1);
         }
         else {
             Global_var_declare(t_pos);    //@
@@ -320,20 +469,7 @@ bool exp_stack_pop(stack<int>& s_num, stack<int>& s_tag, stack<int>& s_opt, stac
     return true;
 }
 
-
-
-bool opt_cmp(int opt_a,int opt_b){
-    int id_a = 0,id_b = 0;
-    if (opt_a >= 20 && opt_a <= 26 || opt_a == 29) id_a = opt_a - 20;
-    else if (opt_a >= 32 && opt_a <= 33) id_a = opt_a - 25;
-    else if (opt_a == 34) id_a = 10;
-    if (opt_b >= 20 && opt_b <= 26 || opt_b == 29) id_b = opt_b - 20;
-    else if (opt_b >= 32 && opt_b <= 33) id_b = opt_b - 25;
-    else if (opt_b == 34) id_b = 10;
-    return opt_cmp_chart[id_a][id_b];
-}
-
-int Exp(int head, int& re_id, int& re_type, Output_region*& out, bool is_const = false){        //表达式求值
+int Exp(int head, int& re_id, int& re_type, Output_region*& out){        //表达式求值
     //printf("%d\n",words[head].id);
     int pos = head, Par = 0, i = 0,is_last_num = false;
     stack<int> s_num, s_tag, s_opt, s_opt_type;
@@ -342,19 +478,49 @@ int Exp(int head, int& re_id, int& re_type, Output_region*& out, bool is_const =
         if (words[pos].id == 1){        //Ident
             symbol* p = sym_getIdent(words[pos].name,Space);
             if (p == nullptr) {Error = true; puts("Exp Ident not found"); return END;}
-            if (is_const && !p->is_const) { Error = true; puts("Should not put a var in a constexp"); return END;}
-            if (!p->is_func) {
-                if (!p->space && p->is_const) {
-                    s_num.push(p->id);
-                    s_tag.push(0);
-                }
-                else {
-                    int id = Output_region::get_new_id();
-                    if (p->space) out->insert_load(id, var_node(2, p->id));
-                    else out->insert_load(id, var_node(p->name));
-                    s_num.push(id);
-                    s_tag.push(1);
-                }
+            if (p->dimen.dimen == 1){ //一维数组取值
+                if (words[++pos].id != 18) {Error = true; puts("Exp [ not found"); return END;}
+                int a_id, a_type;
+                pos = Exp(pos + 1, a_id, a_type, out);
+                if (words[pos].id != 19) {Error = true; puts("Exp ] not found"); return END;}
+                int t_id = Output_region::get_new_id();
+                if (p->space) out->insert_getele_1(t_id, var_node(0,p->dimen.len1), var_node(1, p->id), var_node(a_type, a_id));
+                else out->insert_getele_1(t_id, var_node(0,p->dimen.len1), var_node(p->name), var_node(a_type, a_id));
+                int id = Output_region::get_new_id();
+                out->insert_load(id, var_node(1, t_id));
+                s_num.push(id);
+                s_tag.push(1);
+                is_last_num = true;
+            }
+            else if (p->dimen.dimen == 2) { //二维数组取值
+                if (words[++pos].id != 18) {Error = true; puts("Exp [ not found"); return END;}
+                int a_id, a_type;
+                pos = Exp(pos + 1, a_id, a_type, out);
+                if (words[pos].id != 19) {Error = true; puts("Exp ] not found"); return END;}
+                if (words[++pos].id != 18) {Error = true; puts("Exp [ not found"); return END;}
+                int b_id, b_type;
+                pos = Exp(pos + 1, b_id, b_type, out);
+                if (words[pos].id != 19) {Error = true; puts("Exp ] not found"); return END;}
+                int t_id = Output_region::get_new_id();
+                if (p->space) out->insert_getele_2(t_id, var_node(0,p->dimen.len1), var_node(0,p->dimen.len2), var_node(1, p->id), var_node(a_type, a_id), var_node(b_type, b_id));
+                else out->insert_getele_2(t_id, var_node(0,p->dimen.len1), var_node(0,p->dimen.len2), var_node(p->name), var_node(a_type, a_id), var_node(b_type, b_id));
+                int id = Output_region::get_new_id();
+                out->insert_load(id, var_node(1, t_id));
+                s_num.push(id);
+                s_tag.push(1);
+                is_last_num = true;
+            }
+            else if (p->is_const) {
+                s_num.push(p->id);
+                s_tag.push(0);
+                is_last_num = true;
+            }
+            else if (!p->is_func) {
+                int id = Output_region::get_new_id();
+                if (p->space) out->insert_load(id, var_node(2, p->id));
+                else out->insert_load(id, var_node(p->name));
+                s_num.push(id);
+                s_tag.push(1);
                 is_last_num = true;
             }
             else {            //function
@@ -472,26 +638,13 @@ int Exp(int head, int& re_id, int& re_type, Output_region*& out, bool is_const =
     return pos;
 }
 
-int ConstExp(int head, int& re_id, int& re_type, Output_region*& out){
-    int pos = head;
-    pos = Exp(pos,re_id,re_type, out,true);
-    return pos;
-}
-
-int const_declare(int pos, Output_region*& out){  //@插入常量声明
-    int id = Output_region::get_new_id();
-    if (!sym_insert(words[pos].name, Space, id,true)) Error = true;
-    out->insert_alloc(id);
-    return id;
-}
-
-void const_var_init(int id, const int& re_id, const int& re_type, Output_region*& out){  //@插入常量初始化
-    out->insert_store(var_node(re_type, re_id), var_node(2, id));
+void const_declare(int pos, const int& re_num){  //@常量声明
+    if (!sym_insert(words[pos].name, Space, re_num, d0, true)) Error = true;
 }
 
 int var_declare(int pos, Output_region*& out){  //@插入变量声明
     int id = Output_region::get_new_id();
-    if (!sym_insert(words[pos].name, Space, id,false)) Error = true;
+    if (!sym_insert(words[pos].name, Space, id, d0, false)) Error = true;
     out->insert_alloc(id);
     return id;
 }
@@ -504,17 +657,213 @@ void global_var_modify(const char* name, const int& re_id, const int& re_type, O
     out->insert_store(var_node(re_type, re_id), var_node(name));
 }
 
+
+//常量数组声明
+int  DecConstArray(int head, Output_region*& out){
+    int pos = head;
+    if (words[pos++].id != 1) {Error = true; puts("Array no Ident"); return END;}
+    if (words[pos++].id != 18){Error = true; puts("Array no Lbra"); return END;}
+    int len1;
+    pos = ConstExp(pos, len1);
+    if (Error) return END;
+    if (words[pos++].id != 19){Error = true; puts("Array no Rbra"); return END;}
+    if (words[pos].id == 18){ //[  二维数组
+        int len2;
+        pos = ConstExp(pos + 1, len2);
+        if (Error) return END;
+        // ]
+        if (words[pos++].id != 19){Error = true; puts("Array no Rbra"); return END;}
+        if (words[pos].id == 12){ //= 二维初始化
+            int *nums = new int[len1 * len2];  //存常量初始化值
+            int id = Output_region::get_new_id();
+            out->insert_alloca_2(id, var_node(0, len1), var_node(0, len2));
+            int t_id = Output_region::get_new_id();
+            out->insert_getele_2(t_id, var_node(0,len1), var_node(0, len2), var_node(1, id), var_node(0, 0), var_node(0, 0));
+            out->insert_memset(var_node(1, t_id), var_node(0, 4 * len1 * len2));
+            // {
+            if (words[++pos].id != 16) {Error = true; puts("1d init error"); return END;}
+            pos++;
+            for (int i = 0; i < len1; i++){
+                if (words[pos].id  == 17) break;  // }
+                if (i){
+                    // ,
+                    if (words[pos++].id != 28) {Error = true; puts("2d init error"); return END;}
+                }
+                // {
+                if (words[pos++].id != 16) {Error = true; puts("2d 1d init error"); return END;}
+                for (int j = 0; j < len2; j++){
+                    if (words[pos].id  == 17) break;  // }
+                    if (j){
+                        // ,
+                        if (words[pos++].id != 28) {Error = true; puts("2d 2d init error"); return END;}
+                    }
+                    int re_num;
+                    pos = ConstExp(pos,re_num);
+                    nums[i * len2 + j] = re_num;
+                    if (Error) return END;
+                    t_id = Output_region::get_new_id();
+                    out->insert_getele_2(t_id, var_node(0, len1), var_node(0, len2), var_node(1, id), var_node(0, i), var_node(0, j));
+                    out->insert_store(var_node(0, re_num), var_node(1, t_id));
+                }
+                // }
+                if (words[pos++].id != 17) {Error = true; puts("2d init error"); return END;}
+            }
+            // }
+            if (words[pos++].id != 17) {Error = true; puts("2d init error"); return END;}
+            if (!sym_insert(words[head].name, Space, id, Dimen(len1, len2), true)) {Error = true; puts("Ident same name!"); return END;}
+            symbol *p = sym_getIdent(words[head].name, Space);
+            p->nums = nums;
+        }
+        else {Error = true; puts("Const array should be initialized"); return END;}
+    }
+    else if (words[pos].id == 12){  //=  一维初始化
+        int *nums = new int[len1];
+        int id = Output_region::get_new_id();
+        out->insert_alloca_1(id, var_node(0, len1));
+        int t_id = Output_region::get_new_id();
+        out->insert_getele_1(t_id, var_node(0,len1), var_node(1, id), var_node(0, 0));
+        out->insert_memset(var_node(1, t_id), var_node(0, 4 * len1));
+        // {
+        if (words[++pos].id != 16) {Error = true; puts("1d init error"); return END;}
+        int i = 0;
+        pos++;
+        // }
+        while (words[pos].id != 17){
+            if (i){
+                // ,
+                if (words[pos++].id != 28) {Error = true; puts("1d init error"); return END;}
+            }
+            int re_num;
+            pos = ConstExp(pos,re_num);
+            nums[i] = re_num;
+            if (Error) return END;
+            t_id = Output_region::get_new_id();
+            out->insert_getele_1(t_id, var_node(0,len1), var_node(1, id), var_node(0, i));
+            out->insert_store(var_node(0, re_num), var_node(1, t_id));
+            i++;
+            if (i == len1) break;
+        }
+        // }
+        if (words[pos++].id != 17) {Error = true; puts("1d init error"); return END;}
+        if (Error) return END;
+        if (!sym_insert(words[head].name, Space, id, Dimen(len1))) {Error = true; puts("Ident same name!"); return END;}
+        symbol *p = sym_getIdent(words[head].name, Space);
+        p->nums = nums;
+    }
+    else {Error = true; puts("Const array should be initialized"); return END;}
+    return pos;
+}
+
+//数组声明
+int  DecArray(int head, Output_region*& out){
+    int pos = head;
+    if (words[pos++].id != 1) {Error = true; puts("Array no Ident"); return END;}
+    if (words[pos++].id != 18){Error = true; puts("Array no Lbra"); return END;}
+    int len1;
+    pos = ConstExp(pos, len1);
+    if (Error) return END;
+    if (words[pos++].id != 19){Error = true; puts("Array no Rbra"); return END;}
+    if (words[pos].id == 18){ //[  二维数组
+        int len2;
+        pos = ConstExp(pos + 1, len2);
+        if (Error) return END;
+        if (words[pos++].id != 19){Error = true; puts("Array no Rbra"); return END;}
+        if (words[pos].id == 12){ //= 二维初始化
+            int id = Output_region::get_new_id();
+            out->insert_alloca_2(id, var_node(0, len1), var_node(0, len2));
+            int t_id = Output_region::get_new_id();
+            out->insert_getele_2(t_id, var_node(0,len1), var_node(0, len2), var_node(1, id), var_node(0, 0), var_node(0, 0));
+            out->insert_memset(var_node(1, t_id), var_node(0, 4 * len1 * len2));
+            // {
+            if (words[++pos].id != 16) {Error = true; puts("1d init error"); return END;}
+            pos++;
+            for (int i = 0; i < len1; i++){
+                if (words[pos].id  == 17) break;  // }
+                if (i){
+                    // ,
+                    if (words[pos++].id != 28) {Error = true; puts("2d init error"); return END;}
+                }
+                // {
+                if (words[pos++].id != 16) {Error = true; puts("2d 1d init error"); return END;}
+                for (int j = 0; j < len2; j++){
+                    if (words[pos].id  == 17) break;  // }
+                    if (j){
+                        // ,
+                        if (words[pos++].id != 28) {Error = true; puts("2d 2d init error"); return END;}
+                    }
+                    int re_id, re_type;
+                    pos = Exp(pos,re_id,re_type,out);
+                    if (Error) return END;
+                    t_id = Output_region::get_new_id();
+                    out->insert_getele_2(t_id, var_node(0, len1), var_node(0, len2), var_node(1, id), var_node(0, i), var_node(0, j));
+                    out->insert_store(var_node(re_type, re_id), var_node(1, t_id));
+                }
+                // }
+                if (words[pos++].id != 17) {Error = true; puts("2d init error"); return END;}
+            }
+            // }
+            if (words[pos++].id != 17) {Error = true; puts("2d init error"); return END;}
+            if (!sym_insert(words[head].name, Space, id, Dimen(len1, len2))) {Error = true; puts("Ident same name!"); return END;}
+        }
+        else {  //二维不初始化
+            int id = Output_region::get_new_id();
+            out->insert_alloca_2(id, var_node(0, len1), var_node(0, len2));
+            if (!sym_insert(words[head].name, Space, id, Dimen(len1, len2))) {Error = true; puts("Ident same name!"); return END;}
+        }
+    }
+    else if (words[pos].id == 12){  //=  一维初始化
+        int id = Output_region::get_new_id();
+        out->insert_alloca_1(id, var_node(0, len1));
+        int t_id = Output_region::get_new_id();
+        out->insert_getele_1(t_id, var_node(0,len1), var_node(1, id), var_node(0, 0));
+        out->insert_memset(var_node(1, t_id), var_node(0, 4 * len1));
+        // {
+        if (words[++pos].id != 16) {Error = true; puts("1d init error"); return END;}
+        int i = 0;
+        pos++;
+        // }
+        while (words[pos].id != 17){
+            if (i){
+                // ,
+                if (words[pos++].id != 28) {Error = true; puts("1d init error"); return END;}
+            }
+            int re_id, re_type;
+            pos = Exp(pos,re_id,re_type,out);
+            if (Error) return END;
+            t_id = Output_region::get_new_id();
+            out->insert_getele_1(t_id, var_node(0,len1), var_node(1, id), var_node(0, i));
+            out->insert_store(var_node(re_type, re_id), var_node(1, t_id));
+            i++;
+            if (i == len1) break;
+        }
+        // }
+        if (words[pos++].id != 17) {Error = true; puts("1d init error"); return END;}
+        if (Error) return END;
+        if (!sym_insert(words[head].name, Space, id, Dimen(len1))) {Error = true; puts("Ident same name!"); return END;}
+    }
+    else {  //一维不初始化
+        int id = Output_region::get_new_id();
+        out->insert_alloca_1(id, var_node(0, len1));
+        if (!sym_insert(words[head].name, Space, id, Dimen(len1))) {Error = true; puts("Ident same name!"); return END;}
+    }
+    return pos;
+}
+
+
 int ConstDef(int head, Output_region*& out){          //常量声明
     int pos = head;
     if (words[pos].id == 1){   //Ident
         int t_pos = pos++;
         if (words[pos].id == 12){ //=
-            int re_id,re_type;
-            pos = ConstExp(pos + 1,re_id,re_type, out); //@
+            int re_num;
+            pos = ConstExp(pos + 1,re_num); //@
             if (Error) {puts("var name already exists."); return END;}
-            int ident_id = const_declare(t_pos, out);    //@
+            const_declare(t_pos, re_num);    //@
             if (Error) return END;
-            const_var_init(ident_id,re_id,re_type, out);   //@
+        }
+        else if (words[pos].id == 18){  // [
+            pos = DecConstArray(pos - 1, out);
+            if (Error) return END;
         }
         else {Error = true; return END;}
     }
@@ -535,6 +884,10 @@ int VarDef(int head, Output_region*& out){          //变量声明
             int ident_id = var_declare(t_pos, out);    //@
             if (Error) {puts("var name already exists."); return END;}
             var_modify(ident_id,re_id,re_type, out);   //@
+        }
+        else if (words[pos].id == 18){  //[  数组
+            pos = DecArray(pos - 1, out);
+            if (Error) return END;
         }
         else {
             var_declare(t_pos, out);    //@
@@ -602,6 +955,7 @@ int Voidfun(int head, Output_region*& out){
     if (words[pos].id != 1) {Error = true; return END;}
     symbol* p = sym_getIdent(words[pos].name,Space);
     if (p == nullptr) {Error = true; puts("void fun Ident not found"); return END;}
+    if (!p->is_func || p->re_type) {Error = true; puts("void fun not found"); return END;}
     if (words[++pos].id != 14) {Error = true; return END;} //(
     func_params *u = p->params;
     bool first = true;
@@ -907,6 +1261,57 @@ int Stmt(int head, Output_region*& out){
                 pos++;
                 return pos;
             }
+            else if (p->dimen.dimen == 1){
+                int t_pos = pos;
+                if (words[++t_pos].id != 18) {Error = true; puts("[ not found"); return END;}
+                int a_id,a_type;
+                Output_region* tmp;
+                t_pos = Exp(t_pos + 1,a_id,a_type,tmp);
+                if (Error) return END;
+                if (words[t_pos++].id != 19) {Error = true; puts("] not found"); return END;}
+                if (words[t_pos].id == 12){ //一维数组赋值语句
+                    int re_id,re_type;
+                    pos = Exp(pos + 2, a_id, a_type, out);
+                    if (Error) return END;
+                    pos = Exp(pos + 2, re_id, re_type, out);
+                    if (Error) return END;
+                    if (words[pos++].id != 13) {Error = true; puts("; not found"); return END;}
+                    int id = Output_region::get_new_id();
+                    if (p->space) out->insert_getele_1(id, var_node(0, p->dimen.len1), var_node(1, p->id), var_node(a_type, a_id));
+                    else out->insert_getele_1(id, var_node(0, p->dimen.len1), var_node(p->name), var_node(a_type, a_id));
+                    out->insert_store(var_node(re_type,re_id), var_node(1, id));
+                    return pos;
+                }
+            }
+            else if (p->dimen.dimen == 2){
+                int t_pos = pos;
+                if (words[++t_pos].id != 18) {Error = true; puts("[ not found"); return END;}
+                int a_id,a_type;
+                Output_region* tmp;
+                t_pos = Exp(t_pos + 1,a_id,a_type,tmp);
+                if (Error) return END;
+                if (words[t_pos++].id != 19) {Error = true; puts("] not found"); return END;}
+                if (words[t_pos].id != 18) {Error = true; puts("[ not found"); return END;}
+                int b_id,b_type;
+                t_pos = Exp(t_pos + 1,b_id,b_type,tmp);
+                if (Error) return END;
+                if (words[t_pos++].id != 19) {Error = true; puts("] not found"); return END;}
+                if (words[t_pos].id == 12){ //二维数组赋值语句
+                    int re_id,re_type;
+                    pos = Exp(pos + 2, a_id, a_type, out);
+                    if (Error) return END;
+                    pos = Exp(pos + 2, b_id, b_type, out);
+                    if (Error) return END;
+                    pos = Exp(pos + 2, re_id, re_type, out);
+                    if (Error) return END;
+                    if (words[pos++].id != 13) {Error = true; puts("; not found"); return END;}
+                    int id = Output_region::get_new_id();
+                    if (p->space) out->insert_getele_2(id, var_node(0, p->dimen.len1), var_node(0, p->dimen.len2), var_node(1, p->id), var_node(a_type, a_id), var_node(b_type, b_id));
+                    else out->insert_getele_2(id, var_node(0, p->dimen.len1), var_node(0, p->dimen.len2), var_node(p->name), var_node(a_type, a_id), var_node(b_type, b_id));
+                    out->insert_store(var_node(re_type,re_id), var_node(1, id));
+                    return pos;
+                }
+            }
         }
         int re_id;
         int re_type;
@@ -1006,15 +1411,22 @@ int FuncDef(int head){
 
 
 int CompUnit(int head){
-    sym_insert("getint",0,0,false,true,1);
+    sym_insert("getint",0,0,d0,false,true,1);
     printf("declare i32 @getint()\n");
-    sym_insert("getch",0,0,false,true,1);
+    sym_insert("getch",0,0,d0,false,true,1);
     printf("declare i32 @getch()\n");
     auto *p = new func_params();
-    sym_insert("putint",0,0,false,true,0,p);
+    sym_insert("putint",0,0,d0,false,true,0,p);
     printf("declare void @putint(i32)\n");
-    sym_insert("putch",0,0,false,true,0,p);
+    sym_insert("putch",0,0,d0,false,true,0,p);
     printf("declare void @putch(i32)\n");
+    auto *p1 = new func_params(1);
+    sym_insert("getarray",0,0,d0,false,true,1,p1);
+    printf("declare i32 @getarray(i32*)\n");
+    auto *p2 = new func_params(0,p1);
+    sym_insert("putarray",0,0,d0,false,true,0,p2);
+    printf("declare void @putarray(i32, i32*)\n");
+    printf("declare void @memset(i32*, i32, i32)\n");
     int pos = head;
     while (pos <= words_len){
         if (words[pos].id == 11) pos = Global_Decl(pos);     //const

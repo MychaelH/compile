@@ -20,12 +20,30 @@ int Space_pre[P]; //父亲环境
 int layer_cnt = 0;
 
 struct func_params{
-    int type;   //0:常数  1:指针
+    int type;   //0:传值  1:传指针
     func_params *next;
     func_params(){type = 0; next = nullptr;}
     func_params(int a){type = a; next = nullptr;}
     func_params(int a,func_params *b){type = a; next = b;}
 };
+
+struct Dimen{
+    int dimen;
+    int len1,len2;
+    Dimen(){dimen = len1 = len2 = 0;}
+    Dimen(int x){
+        dimen = 1;
+        len1 = x;
+        len2 = 0;
+    }
+    Dimen(int x,int y){
+        dimen = 2;
+        len1 = x;
+        len2 = y;
+    }
+};
+
+Dimen d0 = Dimen();
 
 struct symbol{
     char* name;   //变量名
@@ -34,9 +52,11 @@ struct symbol{
     bool is_const;  //是否常数
     bool is_func;
     int re_type;   //0void    1:i32
+    Dimen dimen;
+    int* nums;
     func_params *params;
     symbol(){}
-    symbol(const char* name, int space, int id, bool is_const, bool is_func, int re_type, func_params* params){
+    symbol(const char* name, int space, int id, Dimen dimen, bool is_const, bool is_func, int re_type, func_params* params){
         this->name = new char[sizeof(char) * (strlen(name) + 3)];
         strcpy(this->name,name);
         this->space = space;
@@ -45,6 +65,8 @@ struct symbol{
         this->is_func = is_func;
         this->re_type = re_type;
         this->params = params;
+        this->dimen = dimen;
+        nums= nullptr;
     }
 };
 
@@ -84,12 +106,12 @@ symbol* sym_getIdent(const char* name,int space){
     return nullptr;
 }
 
-bool sym_insert(const char* name,int space,int id,bool is_const = false,bool is_func = false,int re_type = 0,func_params *params = nullptr){
+bool sym_insert(const char* name, int space, int id, Dimen dimen, bool is_const = false, bool is_func = false, int re_type = 0, func_params *params = nullptr){
     //puts(name);
     symbol* t = sym_getIdent(name,space);
     if (t != nullptr && t->space == space) return false;
     int code = get_code(name);
-    auto *p_s = new symbol(name,space,id,is_const,is_func,re_type,params);
+    auto *p_s = new symbol(name, space, id, dimen, is_const, is_func, re_type, params);
     auto* v = new s_node;
     v->u = p_s; v->next = nullptr;
     if (table_head[code] == nullptr){
