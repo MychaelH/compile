@@ -499,9 +499,11 @@ struct Output_region{
                         break;
                     case 22:
                         printf("\t%%%d = alloca [%d x i32]\n", u.left_id, u.opt_num[0].id);
+                        opt_id_cnt++;
                         break;
                     case 23:
                         printf("\t%%%d = alloca [%d x [%d x i32]]\n", u.left_id, u.opt_num[0].id, u.opt_num[1].id);
+                        opt_id_cnt++;
                         break;
                     case 24:
                         if (u.opt_num[1].type == 1){
@@ -518,6 +520,7 @@ struct Output_region{
                             printf("%%%d\n",u. opt_num[2].id);
                         }
                         else puts("Error at output24");
+                        opt_id_cnt++;
                         break;
                     case 25:
                         if (u.opt_num[2].type == 1) {
@@ -541,6 +544,7 @@ struct Output_region{
                             printf("%%%d\n",u. opt_num[4].id);
                         }
                         else puts("Error at output25");
+                        opt_id_cnt++;
                         break;
                     case 26:
                         printf("\tcall void @memset(i32* %%%d, i32 0, i32 %d)\n", u.opt_num[0].id, u.opt_num[1].id);

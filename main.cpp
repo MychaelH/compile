@@ -666,11 +666,13 @@ int  DecConstArray(int head, Output_region*& out){
     int len1;
     pos = ConstExp(pos, len1);
     if (Error) return END;
+    if (len1 <= 0) {Error = true; puts("Array size should be above 0"); return END;}
     if (words[pos++].id != 19){Error = true; puts("Array no Rbra"); return END;}
     if (words[pos].id == 18){ //[  二维数组
         int len2;
         pos = ConstExp(pos + 1, len2);
         if (Error) return END;
+        if (len2 <= 0) {Error = true; puts("Array size should be above 0"); return END;}
         // ]
         if (words[pos++].id != 19){Error = true; puts("Array no Rbra"); return END;}
         if (words[pos].id == 12){ //= 二维初始化
@@ -762,11 +764,13 @@ int  DecArray(int head, Output_region*& out){
     int len1;
     pos = ConstExp(pos, len1);
     if (Error) return END;
+    if (len1 <= 0) {Error = true; puts("Array size should be above 0"); return END;}
     if (words[pos++].id != 19){Error = true; puts("Array no Rbra"); return END;}
     if (words[pos].id == 18){ //[  二维数组
         int len2;
         pos = ConstExp(pos + 1, len2);
         if (Error) return END;
+        if (len2 <= 0) {Error = true; puts("Array size should be above 0"); return END;}
         if (words[pos++].id != 19){Error = true; puts("Array no Rbra"); return END;}
         if (words[pos].id == 12){ //= 二维初始化
             int id = Output_region::get_new_id();
@@ -1264,9 +1268,10 @@ int Stmt(int head, Output_region*& out){
             else if (p->dimen.dimen == 1){
                 int t_pos = pos;
                 if (words[++t_pos].id != 18) {Error = true; puts("[ not found"); return END;}
-                int a_id,a_type;
-                Output_region* tmp;
+                int a_id,a_type,tmp_id_cnt = opt_id_cnt;
+                Output_region* tmp = new Output_region();
                 t_pos = Exp(t_pos + 1,a_id,a_type,tmp);
+                opt_id_cnt = tmp_id_cnt;
                 if (Error) return END;
                 if (words[t_pos++].id != 19) {Error = true; puts("] not found"); return END;}
                 if (words[t_pos].id == 12){ //一维数组赋值语句
@@ -1286,14 +1291,15 @@ int Stmt(int head, Output_region*& out){
             else if (p->dimen.dimen == 2){
                 int t_pos = pos;
                 if (words[++t_pos].id != 18) {Error = true; puts("[ not found"); return END;}
-                int a_id,a_type;
-                Output_region* tmp;
+                int a_id,a_type,tmp_id_cnt = opt_id_cnt;
+                Output_region* tmp = new Output_region();
                 t_pos = Exp(t_pos + 1,a_id,a_type,tmp);
                 if (Error) return END;
                 if (words[t_pos++].id != 19) {Error = true; puts("] not found"); return END;}
                 if (words[t_pos].id != 18) {Error = true; puts("[ not found"); return END;}
                 int b_id,b_type;
                 t_pos = Exp(t_pos + 1,b_id,b_type,tmp);
+                opt_id_cnt = tmp_id_cnt;
                 if (Error) return END;
                 if (words[t_pos++].id != 19) {Error = true; puts("] not found"); return END;}
                 if (words[t_pos].id == 12){ //二维数组赋值语句
