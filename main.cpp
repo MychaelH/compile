@@ -1,7 +1,6 @@
 #include<iostream>
 #include<cstdio>
 #include<stack>
-#include<queue>
 #include<vector>
 #include "getword.h"
 #include "symbol_table.h"
@@ -26,8 +25,7 @@ int opt_cmp_chart[][11]={
         {0,0,0,0,0,0,0,0,0,1,1},
 };
 
-
-bool opt_cmp(int opt_a,int opt_b){
+bool opt_cmper(int opt_a, int opt_b){
     int id_a = 0,id_b = 0;
     if (opt_a >= 20 && opt_a <= 26 || opt_a == 29) id_a = opt_a - 20;
     else if (opt_a >= 32 && opt_a <= 33) id_a = opt_a - 25;
@@ -138,7 +136,8 @@ int ConstExp(int head, int& re_num){        //常量表达式求值
                 is_last_num = false;
             }
             else {
-                while (!s_opt.empty() && (s_opt_type.top() == 1 || (s_opt.top() != 14 && opt_cmp(s_opt.top(), words[pos].id)))) {
+                while (!s_opt.empty() && (s_opt_type.top() == 1 || (s_opt.top() != 14 &&
+                        opt_cmper(s_opt.top(), words[pos].id)))) {
                     if (!Const_exp_stack_pop(s_num,s_opt,s_opt_type)) return false;
                 }
                 s_opt.push(words[pos].id);
@@ -186,7 +185,7 @@ int Global_Array_Def(int head, bool is_const = false){
     if (words[pos++].id != 19) {Error = true; puts("lack array ]"); return END;}
     if (words[pos].id == 12){ // = 一维数组初始化
         int *nums = new int[len1];
-        memset(nums, 0, sizeof(nums));
+        memset(nums, 0, sizeof(int) * len1);
         printf("[%d x i32] ", len1);
         // {
         if (words[++pos].id != 16){Error = true; puts("lack array {"); return END;}
@@ -226,7 +225,7 @@ int Global_Array_Def(int head, bool is_const = false){
         if (Error) return END;
         if (words[pos++].id != 19) {Error = true; puts("lack array ]"); return END;}
         int *nums = new int[len1 * len2];
-        memset(nums, 0, sizeof(nums));
+        memset(nums, 0, sizeof(int) * len1 * len2);
         printf("[%d x [%d x i32]] ", len1, len2);
         if (words[pos].id == 12) { // = 二维数组初始化
             // {
@@ -286,7 +285,7 @@ int Global_Array_Def(int head, bool is_const = false){
     }
     else { //一维数组0初始化
         int *nums = new int[len1];
-        memset(nums, 0, sizeof(nums));
+        memset(nums, 0, sizeof(int) * len1);
         printf("[%d x i32] zeroinitializer\n", len1);
         if (!sym_insert(words[head].name, Space, 0, Dimen(len1), is_const)){Error = true; puts("ident exists."); return END;}
         symbol *p = sym_getIdent(words[head].name, Space);
@@ -484,11 +483,20 @@ int Exp(int head, int& re_id, int& re_type, Output_region*& out){        //表�
                 pos = Exp(pos + 1, a_id, a_type, out);
                 if (words[pos].id != 19) {Error = true; puts("Exp ] not found"); return END;}
                 int t_id = Output_region::get_new_id();
-                if (p->space) out->insert_getele_1(t_id, var_node(0,p->dimen.len1), var_node(1, p->id), var_node(a_type, a_id));
-                else out->insert_getele_1(t_id, var_node(0,p->dimen.len1), var_node(p->name), var_node(a_type, a_id));
                 int id = Output_region::get_new_id();
-                out->insert_load(id, var_node(1, t_id));
-                s_num.push(id);
+                if (p->dimen.len1) {
+                    if (p->space) out->insert_getele_1(t_id, var_node(0, p->dimen.len1), var_node(1, p->id), var_node(a_type, a_id));
+                    else out->insert_getele_1(t_id, var_node(0, p->dimen.len1), var_node(p->name), var_node(a_type, a_id));
+                    out->insert_load(id, var_node(1, t_id));
+                    s_num.push(id);
+                }
+                else {
+                    int c_id = Output_region::get_new_id();;
+                    out->insert_load(t_id, var_node(2, p->id));
+                    out->insert_getele_ptr_1(id, var_node(1, t_id), var_node(a_type, a_id));
+                    out->insert_load(c_id, var_node(1, id));
+                    s_num.push(c_id);
+                }
                 s_tag.push(1);
                 is_last_num = true;
             }
@@ -502,11 +510,20 @@ int Exp(int head, int& re_id, int& re_type, Output_region*& out){        //表�
                 pos = Exp(pos + 1, b_id, b_type, out);
                 if (words[pos].id != 19) {Error = true; puts("Exp ] not found"); return END;}
                 int t_id = Output_region::get_new_id();
-                if (p->space) out->insert_getele_2(t_id, var_node(0,p->dimen.len1), var_node(0,p->dimen.len2), var_node(1, p->id), var_node(a_type, a_id), var_node(b_type, b_id));
-                else out->insert_getele_2(t_id, var_node(0,p->dimen.len1), var_node(0,p->dimen.len2), var_node(p->name), var_node(a_type, a_id), var_node(b_type, b_id));
                 int id = Output_region::get_new_id();
-                out->insert_load(id, var_node(1, t_id));
-                s_num.push(id);
+                if (p->dimen.len1) {
+                    if (p->space) out->insert_getele_2(t_id, var_node(0, p->dimen.len1), var_node(0, p->dimen.len2), var_node(1, p->id), var_node(a_type, a_id), var_node(b_type, b_id));
+                    else out->insert_getele_2(t_id, var_node(0, p->dimen.len1), var_node(0, p->dimen.len2), var_node(p->name), var_node(a_type, a_id), var_node(b_type, b_id));
+                    out->insert_load(id, var_node(1, t_id));
+                    s_num.push(id);
+                }
+                else {
+                    int c_id = Output_region::get_new_id();
+                    out->insert_load(t_id, var_node(5, p->id, p->dimen.len2));
+                    out->insert_getele_ptr_2(id, var_node(0, p->dimen.len2), var_node(1, t_id), var_node(a_type, a_id), var_node(b_type, b_id));
+                    out->insert_load(c_id, var_node(1, id));
+                    s_num.push(c_id);
+                }
                 s_tag.push(1);
                 is_last_num = true;
             }
@@ -515,52 +532,85 @@ int Exp(int head, int& re_id, int& re_type, Output_region*& out){        //表�
                 s_tag.push(0);
                 is_last_num = true;
             }
-            else if (!p->is_func) {
+            else if (!p->is_func) {  //变量
                 int id = Output_region::get_new_id();
-                if (p->space) out->insert_load(id, var_node(2, p->id));
+                if (p->space) out->insert_load(id, var_node(1, p->id));
                 else out->insert_load(id, var_node(p->name));
                 s_num.push(id);
                 s_tag.push(1);
                 is_last_num = true;
             }
             else {            //function
+                //printf("%s: %d\n",p->name,p->re_type);
                 if (p->re_type == 0) {Error = true;puts("Can't put a void function in an exp"); return END;}
                 if (words[++pos].id != 14) {Error = true; return END;} //(
                 func_params *u = p->params;
                 bool first = true;
-                union param_node{
-                    int id;
-                    const char* name{};
-                    explicit param_node(int a){id = a;}
-                    explicit param_node(const char* c){name = c;}
-                };
-                queue<param_node> param_id;
-                queue<int> param_type;
+                vector<var_node> param_id;
                 pos++;
                 while (u != nullptr){
                     if (first) first = false;
-                    else if (words[pos++].id != 28) {Error = true; puts("in lack of ,"); return END;} //,
+                    else if (words[pos++].id != 28) {Error = true; return END;} //,
                     if (u->type == 0) {   //如果是传值
                         int re_id_param,re_type_param;
                         pos = Exp(pos, re_id_param, re_type_param, out);
                         if (Error) return END;
-                        param_id.push((param_node){re_id_param});
-                        param_type.push(re_type_param);
+                        param_id.emplace_back(var_node(re_type_param, re_id_param));
                     }
-                    else if (u->type == 1){ //如果是传指针
-                        if (words[pos].id != 1){Error = true; puts("There must be a var"); return END;}
+                    else if (u->type == 1){ //如果是传一维数组
+                        if (words[pos].id != 1){Error = true; return END;}
                         symbol* param_i = sym_getIdent(words[pos].name,Space);
-                        if (param_i == nullptr) {Error = true; puts("Can't find name(exp_func)"); return END;}
+                        if (param_i == nullptr) {Error = true; return END;}
                         if (param_i->is_func) {Error = true; return END;}
                         if (param_i->is_const) {Error = true; return END;}
                         //找到合法的变量
+                        if (param_i->dimen.dimen == 1){
+                            if (param_i->space) {
+                                int id = Output_region::get_new_id();
+                                out->insert_getele_1(id , var_node(0,param_i->dimen.len1),  var_node(1, param_i->id), var_node(0, 0));
+                                param_id.emplace_back(var_node(2, id));
+                            }
+                            else {
+                                int id = Output_region::get_new_id();
+                                out->insert_getele_1(id , var_node(0,param_i->dimen.len1),  var_node(param_i->name), var_node(0, 0));
+                                param_id.emplace_back(var_node(4, id));
+                            }
+                        }
+                        else if (param_i->dimen.dimen == 2){
+                            if (words[++pos].id != 18) {Error = true; return END;} //[
+                            int a_id,a_type;
+                            pos = Exp(pos + 1, a_id, a_type, out);
+                            if (words[pos].id != 19) {Error = true; return END;}
+                            if (param_i->space) {
+                                int id = Output_region::get_new_id();
+                                out->insert_getele_2(id , var_node(0,param_i->dimen.len1), var_node(0,param_i->dimen.len2),  var_node(1, param_i->id), var_node(a_type, a_id), var_node(0, 0));
+                                param_id.emplace_back(var_node(2, id));
+                            }
+                            else {
+                                int id = Output_region::get_new_id();
+                                out->insert_getele_2(id , var_node(0,param_i->dimen.len1), var_node(0,param_i->dimen.len2),  var_node(param_i->name), var_node(a_type, a_id), var_node(0, 0));
+                                param_id.emplace_back(var_node(4, id));
+                            }
+                        }
+                        else {Error = true; return END;}
+                        pos++;
+                    }
+                    else if (u->type == 2){ //如果传二维数组
+                        if (words[pos].id != 1){Error = true; return END;}
+                        symbol* param_i = sym_getIdent(words[pos].name,Space);
+                        if (param_i == nullptr) {Error = true; return END;}
+                        if (param_i->is_func) {Error = true; return END;}
+                        if (param_i->is_const) {Error = true; return END;}
+                        if (param_i->dimen.dimen != 2) {Error = true; return END;}
                         if (param_i->space) {
-                            param_id.push((param_node){param_i->id});
-                            param_type.push(2);
+                            int id = Output_region::get_new_id();
+                            out->insert_getele_2_to_1(id , var_node(0,param_i->dimen.len1), var_node(0,param_i->dimen.len2),  var_node(1, param_i->id), var_node(0, 0));
+                            param_id.emplace_back(var_node(5, id, param_i->dimen.len2));
                         }
                         else {
-                            param_id.push((param_node){param_i->name});
-                            param_type.push(3);
+                            int id = Output_region::get_new_id();
+                            out->insert_getele_2_to_1(id , var_node(0,param_i->dimen.len1), var_node(0,param_i->dimen.len2),  var_node(param_i->name), var_node(0, 0));
+                            param_id.emplace_back(var_node(6, id, param_i->dimen.len2));
                         }
                         pos++;
                     }
@@ -570,14 +620,7 @@ int Exp(int head, int& re_id, int& re_type, Output_region*& out){        //表�
                 if (words[pos].id != 15) {Error = true; return END;} //)
                 //@load func
                 int id = Output_region::get_new_id();
-                vector<var_node> params;
-                while (!param_id.empty()){
-                    param_node p_id = param_id.front(); param_id.pop();
-                    int p_type = param_type.front(); param_type.pop();
-                    if (p_type != 3) params.emplace_back(var_node(p_type, p_id.id));
-                    else params.emplace_back(var_node(p_id.name));
-                }
-                out->insert_call_i32(id, p->name, params);
+                out->insert_call_i32(id, p->name, param_id);
                 s_num.push(id);
                 s_tag.push(1);
                 is_last_num = true;
@@ -611,7 +654,8 @@ int Exp(int head, int& re_id, int& re_type, Output_region*& out){        //表�
                 is_last_num = false;
             }
             else {
-                while (!s_opt.empty() && (s_opt_type.top() == 1 || (s_opt.top() != 14 && opt_cmp(s_opt.top(), words[pos].id)))) {
+                while (!s_opt.empty() && (s_opt_type.top() == 1 || (s_opt.top() != 14 &&
+                        opt_cmper(s_opt.top(), words[pos].id)))) {
                     if (!exp_stack_pop(s_num,s_tag,s_opt,s_opt_type, out)) return false;
                 }
                 s_opt.push(words[pos].id);
@@ -650,7 +694,7 @@ int var_declare(int pos, Output_region*& out){  //@插入变量声明
 }
 
 void var_modify(int id, const int& re_id, const int& re_type, Output_region*& out){    //@插入变量修改
-    out->insert_store(var_node(re_type, re_id), var_node(2, id));
+    out->insert_store(var_node(re_type, re_id), var_node(1, id));
 }
 
 void global_var_modify(const char* name, const int& re_id, const int& re_type, Output_region*& out){    //@插入变量修改
@@ -963,14 +1007,7 @@ int Voidfun(int head, Output_region*& out){
     if (words[++pos].id != 14) {Error = true; return END;} //(
     func_params *u = p->params;
     bool first = true;
-    union param_node{
-        int id;
-        const char* name{};
-        explicit param_node(int a){id = a;}
-        explicit param_node(const char* c){name = c;}
-    };
-    queue<param_node> param_id;
-    queue<int> param_type;
+    vector<var_node> param_id;
     pos++;
     while (u != nullptr){
         if (first) first = false;
@@ -979,24 +1016,62 @@ int Voidfun(int head, Output_region*& out){
             int re_id_param,re_type_param;
             pos = Exp(pos, re_id_param, re_type_param, out);
             if (Error) return END;
-            param_id.push(param_node(re_id_param));
-            param_type.push(re_type_param);
+            param_id.emplace_back(var_node(re_type_param, re_id_param));
         }
-        else if (u->type == 1){ //如果是传指针
+        else if (u->type == 1){ //如果是传一维数组
             if (words[pos].id != 1){Error = true; return END;}
             symbol* param_i = sym_getIdent(words[pos].name,Space);
             if (param_i == nullptr) {Error = true; return END;}
             if (param_i->is_func) {Error = true; return END;}
             if (param_i->is_const) {Error = true; return END;}
             //找到合法的变量
-
+            if (param_i->dimen.dimen == 1){
+                if (param_i->space) {
+                    int id = Output_region::get_new_id();
+                    out->insert_getele_1(id , var_node(0,param_i->dimen.len1),  var_node(1, param_i->id), var_node(0, 0));
+                    param_id.emplace_back(var_node(2, id));
+                }
+                else {
+                    int id = Output_region::get_new_id();
+                    out->insert_getele_1(id , var_node(0,param_i->dimen.len1),  var_node(param_i->name), var_node(0, 0));
+                    param_id.emplace_back(var_node(4, id));
+                }
+            }
+            else if (param_i->dimen.dimen == 2){
+                if (words[++pos].id != 18) {Error = true; return END;} //[
+                int re_id,re_type;
+                pos = Exp(pos + 1, re_id, re_type, out);
+                if (words[pos].id != 19) {Error = true; return END;}
+                if (param_i->space) {
+                    int id = Output_region::get_new_id();
+                    out->insert_getele_2(id , var_node(0,param_i->dimen.len1), var_node(0,param_i->dimen.len2),  var_node(1, param_i->id), var_node(re_type, re_id), var_node(0, 0));
+                    param_id.emplace_back(var_node(2, id));
+                }
+                else {
+                    int id = Output_region::get_new_id();
+                    out->insert_getele_2(id , var_node(0,param_i->dimen.len1), var_node(0,param_i->dimen.len2),  var_node(param_i->name), var_node(re_type, re_id), var_node(0, 0));
+                    param_id.emplace_back(var_node(4, id));
+                }
+            }
+            else {Error = true; return END;}
+            pos++;
+        }
+        else if (u->type == 2){ //如果传二维数组
+            if (words[pos].id != 1){Error = true; return END;}
+            symbol* param_i = sym_getIdent(words[pos].name,Space);
+            if (param_i == nullptr) {Error = true; return END;}
+            if (param_i->is_func) {Error = true; return END;}
+            if (param_i->is_const) {Error = true; return END;}
+            if (param_i->dimen.dimen != 2) {Error = true; return END;}
             if (param_i->space) {
-                param_id.push(param_node(param_i->id));
-                param_type.push(2);
+                int id = Output_region::get_new_id();
+                out->insert_getele_2_to_1(id , var_node(0,param_i->dimen.len1), var_node(0,param_i->dimen.len2),  var_node(1, param_i->id), var_node(0, 0));
+                param_id.emplace_back(var_node(5, id, param_i->dimen.len2));
             }
             else {
-                param_id.push(param_node(param_i->name));
-                param_type.push(3);
+                int id = Output_region::get_new_id();
+                out->insert_getele_2_to_1(id , var_node(0,param_i->dimen.len1), var_node(0,param_i->dimen.len2),  var_node(param_i->name), var_node(0, 0));
+                param_id.emplace_back(var_node(6, id, param_i->dimen.len2));
             }
             pos++;
         }
@@ -1005,14 +1080,7 @@ int Voidfun(int head, Output_region*& out){
     }
     if (words[pos++].id != 15) {Error = true; return END;} //)
     //@load func
-    vector<var_node> params;
-    while (!param_id.empty()){
-        param_node p_id = param_id.front(); param_id.pop();
-        int p_type = param_type.front(); param_type.pop();
-        if (p_type != 3) params.emplace_back(var_node(p_type, p_id.id));
-        else params.emplace_back(var_node(p_id.name));
-    }
-    out->insert_call_void(p->name, params);
+    out->insert_call_void(p->name, param_id);
     return pos;
 }
 
@@ -1265,11 +1333,11 @@ int Stmt(int head, Output_region*& out){
                 pos++;
                 return pos;
             }
-            else if (p->dimen.dimen == 1){
+            else if (p->dimen.dimen == 1){ //一维数组
                 int t_pos = pos;
                 if (words[++t_pos].id != 18) {Error = true; puts("[ not found"); return END;}
                 int a_id,a_type,tmp_id_cnt = opt_id_cnt;
-                Output_region* tmp = new Output_region();
+                auto* tmp = new Output_region();
                 t_pos = Exp(t_pos + 1,a_id,a_type,tmp);
                 opt_id_cnt = tmp_id_cnt;
                 if (Error) return END;
@@ -1282,17 +1350,25 @@ int Stmt(int head, Output_region*& out){
                     if (Error) return END;
                     if (words[pos++].id != 13) {Error = true; puts("; not found"); return END;}
                     int id = Output_region::get_new_id();
-                    if (p->space) out->insert_getele_1(id, var_node(0, p->dimen.len1), var_node(1, p->id), var_node(a_type, a_id));
-                    else out->insert_getele_1(id, var_node(0, p->dimen.len1), var_node(p->name), var_node(a_type, a_id));
-                    out->insert_store(var_node(re_type,re_id), var_node(1, id));
+                    if (p->dimen.len1) {
+                        if (p->space) out->insert_getele_1(id, var_node(0, p->dimen.len1), var_node(1, p->id), var_node(a_type, a_id));
+                        else out->insert_getele_1(id, var_node(0, p->dimen.len1), var_node(p->name), var_node(a_type, a_id));
+                        out->insert_store(var_node(re_type, re_id), var_node(1, id));
+                    }
+                    else {
+                        int t_id = Output_region::get_new_id();
+                        out->insert_load(id, var_node(2, p->id));
+                        out->insert_getele_ptr_1(t_id, var_node(1, id), var_node(a_type, a_id));
+                        out->insert_store(var_node(re_type, re_id), var_node(1, t_id));
+                    }
                     return pos;
                 }
             }
-            else if (p->dimen.dimen == 2){
+            else if (p->dimen.dimen == 2){  //二维数组赋值
                 int t_pos = pos;
                 if (words[++t_pos].id != 18) {Error = true; puts("[ not found"); return END;}
                 int a_id,a_type,tmp_id_cnt = opt_id_cnt;
-                Output_region* tmp = new Output_region();
+                auto* tmp = new Output_region();
                 t_pos = Exp(t_pos + 1,a_id,a_type,tmp);
                 if (Error) return END;
                 if (words[t_pos++].id != 19) {Error = true; puts("] not found"); return END;}
@@ -1312,9 +1388,17 @@ int Stmt(int head, Output_region*& out){
                     if (Error) return END;
                     if (words[pos++].id != 13) {Error = true; puts("; not found"); return END;}
                     int id = Output_region::get_new_id();
-                    if (p->space) out->insert_getele_2(id, var_node(0, p->dimen.len1), var_node(0, p->dimen.len2), var_node(1, p->id), var_node(a_type, a_id), var_node(b_type, b_id));
-                    else out->insert_getele_2(id, var_node(0, p->dimen.len1), var_node(0, p->dimen.len2), var_node(p->name), var_node(a_type, a_id), var_node(b_type, b_id));
-                    out->insert_store(var_node(re_type,re_id), var_node(1, id));
+                    if (p->dimen.len1){
+                        if (p->space) out->insert_getele_2(id, var_node(0, p->dimen.len1), var_node(0, p->dimen.len2), var_node(1, p->id), var_node(a_type, a_id), var_node(b_type, b_id));
+                        else out->insert_getele_2(id, var_node(0, p->dimen.len1), var_node(0, p->dimen.len2), var_node(p->name), var_node(a_type, a_id), var_node(b_type, b_id));
+                        out->insert_store(var_node(re_type, re_id), var_node(1, id));
+                    }
+                    else {
+                        int t_id = Output_region::get_new_id();
+                        out->insert_load(id, var_node(5, p->id));
+                        out->insert_getele_ptr_2(t_id, var_node(0, p->dimen.len2), var_node(1, id), var_node(a_type, a_id), var_node(b_type, b_id));
+                        out->insert_store(var_node(re_type, re_id), var_node(1, t_id));
+                    }
                     return pos;
                 }
             }
@@ -1356,56 +1440,134 @@ int Block(int head, Output_region*& out){
     return pos;
 }
 
-int FuncFParams(int head){    //参数列表
+int FuncFParams(int head, func_params*& p){    //参数列表
     int pos = head;
-
-    return 0;
+    bool first = true;
+    p = new func_params();
+    func_params *t = p;
+    while (words[pos].id != 15) {
+        func_params *u = nullptr;
+        if (first) first = false;
+        else {
+            // ,
+            if (words[pos++].id != 28) {Error = true;puts("params , not found");return true;}
+        }
+        if (words[pos++].id != 9) {Error = true;puts("params type not right");return true;}
+        if (words[pos].id != 1) {Error = true;puts("params name not right");return true;}
+        int t_pos = pos++;
+        if (words[pos].id == 18) {  //[
+            // ]
+            if (words[++pos].id != 19) {Error = true;puts("params ] not right");return true;}
+            if (words[++pos].id == 18) {  //[  二维数组
+                int re_num;
+                pos = ConstExp(pos + 1, re_num);
+                //]
+                if (words[pos++].id != 19) {Error = true;puts("params ] not right");return true;}
+                u = new func_params(2, re_num);
+                u->name = new char[strlen(words[t_pos].name) + 2];
+                strcpy(u->name, words[t_pos].name);
+                t->next = u;
+                t = u;
+                int id = Output_region::get_new_id();
+                //if (!sym_insert(words[t_pos].name, Space, id, Dimen(0,re_num))){Error = true;puts("var name repeated");return true;}
+            }
+            else {  //一维数组
+                u = new func_params(1);
+                u->name = new char[strlen(words[t_pos].name) + 2];
+                strcpy(u->name, words[t_pos].name);
+                t->next = u;
+                t = u;
+                int id = Output_region::get_new_id();
+                //if (!sym_insert(words[t_pos].name, Space, id, Dimen(0))){Error = true;puts("var name repeated");return true;}
+            }
+        }
+        else {  //变量
+            u = new func_params(0);
+            u->name = new char[strlen(words[t_pos].name) + 2];
+            strcpy(u->name, words[t_pos].name);
+            t->next = u;
+            t = u;
+            int id = Output_region::get_new_id();
+            //if (!sym_insert(words[t_pos].name, Space, id, Dimen())){Error = true;puts("var name repeated");return true;}
+        }
+    }
+    p = p->next;
+    return pos;
 }
 
 int FuncDef(int head){
     int pos = head;
-    printf("define ");
-    if (words[pos].id == 10){
-        printf("void ");
-    }
-    else if (words[pos].id == 9){
-        printf("i32 ");
-    }
-    else {Error = true; return END;}
-    pos++;
-    if (words[pos].id == 1){
-        printf("@%s",words[pos].name);
-    }
-    else {Error = true; return END;}
-    pos++;
-    if (words[pos].id == 14){   //(
-        printf("(");
-    }
-    else {Error = true; return END;}
-    pos++;
-    if (words[pos].id == 15){   //)
-        printf(")");
-        pos++;
-    }
-    else {
-        pos = FuncFParams(pos);  //参数列表
-        if (words[pos].id != 15) {Error = true; return END;}
-        printf(")");
-        pos++;
-    }
     Space_cnt++;
     Space_pre[Space_cnt] = Space;
     Space = Space_cnt;
     auto *out = new Output_region();
-    opt_id_cnt = 0;
-    if (words[pos++].id == 16){   //{
-        printf("{\n");
+    opt_id_cnt = -1;
+    int re_type = 0;
+    if (words[pos].id == 10){  //void
+        re_type = 0;
     }
-    else {Error = true; puts("Error at Block 1"); return END;}
+    else if (words[pos].id == 9){  //int
+        re_type = 1;
+    }
+    else {Error = true; puts("unknown type"); return END;}
+    pos++;
+    int pos_name = pos;
+    if (words[pos].id != 1) {Error = true; puts("no ident"); return END;}  //ident
+    pos++;
+    func_params *p = nullptr;
+    if (words[pos].id != 14) {Error = true; puts("lack ("); return END;}  //(
+    pos++;
+    if (words[pos].id == 15){   //)
+        pos++;
+    }
+    else {
+        pos = FuncFParams(pos, p);  //参数列表
+        if (Error) {puts("wrong at params define");return END;}
+        if (words[pos++].id != 15) {Error = true; puts("lack )"); return END;}
+    }
+    //puts("params ok");
+    // {
+    if (words[pos++].id != 16) {Error = true; puts("Error at Block 1"); return END;}
+    vector<var_node> u;
+    int t_opt_id = -1;
+    for (func_params *t = p; t != nullptr; t = t->next){
+        int id = ++t_opt_id;
+        if (t->type == 0) u.emplace_back(var_node(1, id));
+        else if (t->type == 1) u.emplace_back(var_node(2, id));
+        else if (t->type == 2) u.emplace_back(var_node(3, id, t->len));
+        else {Error = true; puts("type not found"); return END;}
+    }
+    //printf("u size:%d\n",u.size());
+    out->insert_def_func(re_type, words[pos_name].name, u);
+    //将参数赋值到函数内变量中
+    t_opt_id = -1;
+    Output_region::get_new_id();  //不知道为什么要丢掉一个id
+    for (func_params *t = p; t != nullptr; t = t->next){
+        t_opt_id++;
+        int id = Output_region::get_new_id();
+        if (t->type == 0){  //变量
+            out->insert_alloc(id);
+            out->insert_store(var_node(1, t_opt_id), var_node(1, id));
+            if (!sym_insert(t->name, Space, id, Dimen())) {Error = true; return END;}
+        }
+        else if (t->type == 1){ //一维数组
+            out->insert_alloca_star(id);
+            out->insert_store(var_node(2, t_opt_id), var_node(2, id));
+            if (!sym_insert(t->name, Space, id, Dimen(0))) {Error = true; return END;}
+        }
+        else if (t->type == 2){  //二维数组
+            out->insert_alloca_2_star(id, var_node(0, t->len));
+            out->insert_store(var_node(5, t_opt_id, t->len), var_node(5, id, t->len));
+            if (!sym_insert(t->name, Space, id, Dimen(0, t->len))) {Error = true; return END;}
+        }
+        else {Error = true; puts("type not found"); return END;}
+    }
+    //printf("re_type:%d\n",re_type);
+    sym_insert(words[pos_name].name, 0, 0, Dimen(), false, true, re_type, p);
     pos = Block(pos, out);
+    if (Error){puts("something wrong"); return END;}
     while (out->pre != nullptr) out = out->pre;
-    opt_id_cnt = 0;
-    out->output();
+    opt_id_cnt = -1; out->output(); //输出
     if (words[pos++].id == 17){   //}
         printf("}\n");
     }
@@ -1413,8 +1575,6 @@ int FuncDef(int head){
     Space = Space_pre[Space];
     return pos;
 }
-
-
 
 int CompUnit(int head){
     sym_insert("getint",0,0,d0,false,true,1);

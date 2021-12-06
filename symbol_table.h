@@ -20,10 +20,16 @@ int Space_pre[P]; //父亲环境
 int layer_cnt = 0;
 
 struct func_params{
-    int type;   //0:传值  1:传指针
+    int type;   //0:传值  1:传指针  2:传2维指针
+    int len{0};  //如果传二维，那么第一维的大小为len
     func_params *next;
+    char* name{nullptr};
     func_params(){type = 0; next = nullptr;}
-    func_params(int a){type = a; next = nullptr;}
+    explicit func_params(int a,int l = 0){
+        this->type = a;
+        this->len = l;
+        next = nullptr;
+    }
     func_params(int a,func_params *b){type = a; next = b;}
 };
 

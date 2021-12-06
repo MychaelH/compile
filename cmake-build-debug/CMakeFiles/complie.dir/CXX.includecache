@@ -37,8 +37,6 @@ cstdio
 -
 stack
 -
-queue
--
 vector
 -
 getword.h
