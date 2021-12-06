@@ -576,7 +576,7 @@ int Exp(int head, int& re_id, int& re_type, Output_region*& out){        //è¡¨è¾
                                 } else {
                                     int id = Output_region::get_new_id();
                                     out->insert_getele_1(id, var_node(0, param_i->dimen.len1), var_node(param_i->name),var_node(0, 0));
-                                    param_id.emplace_back(var_node(4, id));
+                                    param_id.emplace_back(var_node(2, id));
                                 }
                             }
                             else {
