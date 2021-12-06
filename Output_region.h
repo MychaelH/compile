@@ -48,7 +48,9 @@ struct output_unit{
     //26:memset  27:define xxx @s(){
     //28:getelementptr 2D for 1D
     //29:alloc [? x i32]*   30:alloc i32*
-    //31:store    i32 * *
+    //31:insert_getele_ptr_1
+    //32:insert_getele_ptr_2
+    //33:ret void
     //icmp....
     int left_id{};
     char *name{nullptr};
@@ -56,7 +58,7 @@ struct output_unit{
     vector<var_node> opt_num;
     Output_region* block{};
     output_unit()= default;
-    output_unit(int type,int opt_t,int left_id){
+    output_unit(int type,int opt_t,int left_id = 0){
         this->type = type;
         this->opt_t = opt_t;
         this->left_id = left_id;
@@ -250,6 +252,9 @@ struct Output_region{
     void insert_getele_ptr_2(int id, var_node a, var_node b, var_node pos1, var_node pos2){
         out.emplace_back(output_unit(0, 32, a, b, pos1, pos2, id));
     }
+    void insert_ret_void(){
+        out.emplace_back(output_unit(0, 33));
+    }
     void insert_block(Output_region* inside_region){
         out.emplace_back(output_unit(1, inside_region));
         inside_region->pre = this;
@@ -320,7 +325,7 @@ struct Output_region{
                                 printf("[%d x i32]* %%%d", u.opt_num[j].len, u.opt_num[j].id);
                             }
                             else if (u.opt_num[j].type == 6){
-                                printf("[len x i32]* @%s", u.opt_num[j].len, u.opt_num[j].name);
+                                printf("[%d x i32]* @%s", u.opt_num[j].len, u.opt_num[j].name);
                             }
                             else puts("wrong type at 3");
                         }
@@ -349,7 +354,7 @@ struct Output_region{
                                 printf("[%d x i32]* %%%d", u.opt_num[j].len, u.opt_num[j].id);
                             }
                             else if (u.opt_num[j].type == 6){
-                                printf("[len x i32]* @%s", u.opt_num[j].len, u.opt_num[j].name);
+                                printf("[%d x i32]* @%s", u.opt_num[j].len, u.opt_num[j].name);
                             }
                             else puts("wrong type at 4");
                         }
@@ -673,6 +678,10 @@ struct Output_region{
                         if (u.opt_num[3].type == 0) printf("%d\n",u.opt_num[3].id);
                         else if (u.opt_num[3].type == 1) printf("%%%d\n",u.opt_num[3].id);
                         else puts("wrong at 32");
+                        opt_id_cnt++;
+                        break;
+                    case 33:
+                        printf("\tret void\n");
                         opt_id_cnt++;
                         break;
                     default:puts("Error at output");break;

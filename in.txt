@@ -1,11 +1,51 @@
-int foo(int a, int b) {
-    int t = a + b;
-    a = t - a;
-    b = t - b;
-    return a - b;
+int n;
+int QuickSort(int arr[], int low, int high) {
+    if (low < high) {
+        int i;
+        i = low;
+        int j;
+        j = high;
+        int k;
+        k = arr[low];
+        while (i < j) {
+            while (i < j && arr[j] > k - 1) {
+                j = j - 1;
+            }
+
+            if (i < j) {
+                arr[i] = arr[j];
+                i      = i + 1;
+            }
+
+            while (i < j && arr[i] < k) {
+                i = i + 1;
+            }
+
+            if (i < j) {
+                arr[j] = arr[i];
+                j      = j - 1;
+            }
+        }
+
+        arr[i] = k;
+        int tmp;
+        tmp = i - 1;
+        tmp = QuickSort(arr, low, tmp);
+        tmp = i + 1;
+        tmp = QuickSort(arr, tmp, high);
+    }
+    return 0;
 }
 
 int main() {
-    putint(foo(1, 2, 3));
+
+    int a[10];
+    n = getarray(a);
+    int i;
+    i = 0;
+    int tmp;
+    tmp = 9;
+    i   = QuickSort(a, i, tmp);
+    putarray(10, a);
     return 0;
 }

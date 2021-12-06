@@ -11,6 +11,8 @@ int END;
 
 bool Error;
 
+int now_func_type;
+
 int opt_cmp_chart[][11]={
         {1,1,0,0,0,1,1,1,1,1,1},
         {1,1,0,0,0,1,1,1,1,1,1},
@@ -485,6 +487,7 @@ int Exp(int head, int& re_id, int& re_type, Output_region*& out){        //表�
                 int t_id = Output_region::get_new_id();
                 int id = Output_region::get_new_id();
                 if (p->dimen.len1) {
+                    //printf("dimen.len1:  %d\n", p->dimen.len1);
                     if (p->space) out->insert_getele_1(t_id, var_node(0, p->dimen.len1), var_node(1, p->id), var_node(a_type, a_id));
                     else out->insert_getele_1(t_id, var_node(0, p->dimen.len1), var_node(p->name), var_node(a_type, a_id));
                     out->insert_load(id, var_node(1, t_id));
@@ -565,31 +568,43 @@ int Exp(int head, int& re_id, int& re_type, Output_region*& out){        //表�
                         if (param_i->is_const) {Error = true; return END;}
                         //找到合法的变量
                         if (param_i->dimen.dimen == 1){
-                            if (param_i->space) {
-                                int id = Output_region::get_new_id();
-                                out->insert_getele_1(id , var_node(0,param_i->dimen.len1),  var_node(1, param_i->id), var_node(0, 0));
-                                param_id.emplace_back(var_node(2, id));
+                            if (param_i->dimen.len1) {
+                                if (param_i->space) {
+                                    int id = Output_region::get_new_id();
+                                    out->insert_getele_1(id, var_node(0, param_i->dimen.len1), var_node(1, param_i->id),var_node(0, 0));
+                                    param_id.emplace_back(var_node(2, id));
+                                } else {
+                                    int id = Output_region::get_new_id();
+                                    out->insert_getele_1(id, var_node(0, param_i->dimen.len1), var_node(param_i->name),var_node(0, 0));
+                                    param_id.emplace_back(var_node(4, id));
+                                }
                             }
                             else {
                                 int id = Output_region::get_new_id();
-                                out->insert_getele_1(id , var_node(0,param_i->dimen.len1),  var_node(param_i->name), var_node(0, 0));
-                                param_id.emplace_back(var_node(4, id));
+                                out->insert_load(id, var_node(2, param_i->id));
+                                param_id.emplace_back(var_node(2, id));
                             }
                         }
-                        else if (param_i->dimen.dimen == 2){
+                        else if (param_i->dimen.dimen == 2){  //如果传二维数组到一维
                             if (words[++pos].id != 18) {Error = true; return END;} //[
                             int a_id,a_type;
                             pos = Exp(pos + 1, a_id, a_type, out);
                             if (words[pos].id != 19) {Error = true; return END;}
-                            if (param_i->space) {
-                                int id = Output_region::get_new_id();
-                                out->insert_getele_2(id , var_node(0,param_i->dimen.len1), var_node(0,param_i->dimen.len2),  var_node(1, param_i->id), var_node(a_type, a_id), var_node(0, 0));
-                                param_id.emplace_back(var_node(2, id));
+                            if (param_i->dimen.len1) {
+                                if (param_i->space) {
+                                    int id = Output_region::get_new_id();
+                                    out->insert_getele_2(id, var_node(0, param_i->dimen.len1), var_node(0, param_i->dimen.len2), var_node(1, param_i->id), var_node(a_type, a_id), var_node(0, 0));
+                                    param_id.emplace_back(var_node(2, id));
+                                } else {
+                                    int id = Output_region::get_new_id();
+                                    out->insert_getele_2(id, var_node(0, param_i->dimen.len1), var_node(0, param_i->dimen.len2), var_node(param_i->name), var_node(a_type, a_id), var_node(0, 0));
+                                    param_id.emplace_back(var_node(4, id));
+                                }
                             }
                             else {
                                 int id = Output_region::get_new_id();
-                                out->insert_getele_2(id , var_node(0,param_i->dimen.len1), var_node(0,param_i->dimen.len2),  var_node(param_i->name), var_node(a_type, a_id), var_node(0, 0));
-                                param_id.emplace_back(var_node(4, id));
+                                out->insert_getele_ptr_2(id, var_node(0, param_i->dimen.len2), var_node(1, param_i->id), var_node(0, 0), var_node(re_type, re_id));
+                                param_id.emplace_back(var_node(2, id, param_i->dimen.len2));
                             }
                         }
                         else {Error = true; return END;}
@@ -602,15 +617,21 @@ int Exp(int head, int& re_id, int& re_type, Output_region*& out){        //表�
                         if (param_i->is_func) {Error = true; return END;}
                         if (param_i->is_const) {Error = true; return END;}
                         if (param_i->dimen.dimen != 2) {Error = true; return END;}
-                        if (param_i->space) {
-                            int id = Output_region::get_new_id();
-                            out->insert_getele_2_to_1(id , var_node(0,param_i->dimen.len1), var_node(0,param_i->dimen.len2),  var_node(1, param_i->id), var_node(0, 0));
-                            param_id.emplace_back(var_node(5, id, param_i->dimen.len2));
+                        if (param_i->dimen.len1) {
+                            if (param_i->space) {
+                                int id = Output_region::get_new_id();
+                                out->insert_getele_2_to_1(id, var_node(0, param_i->dimen.len1), var_node(0, param_i->dimen.len2), var_node(1, param_i->id), var_node(0, 0));
+                                param_id.emplace_back(var_node(5, id, param_i->dimen.len2));
+                            } else {
+                                int id = Output_region::get_new_id();
+                                out->insert_getele_2_to_1(id, var_node(0, param_i->dimen.len1), var_node(0, param_i->dimen.len2), var_node(param_i->name), var_node(0, 0));
+                                param_id.emplace_back(var_node(6, id, param_i->dimen.len2));
+                            }
                         }
                         else {
                             int id = Output_region::get_new_id();
-                            out->insert_getele_2_to_1(id , var_node(0,param_i->dimen.len1), var_node(0,param_i->dimen.len2),  var_node(param_i->name), var_node(0, 0));
-                            param_id.emplace_back(var_node(6, id, param_i->dimen.len2));
+                            out->insert_load(id, var_node(5, param_i->id, param_i->dimen.len2));
+                            param_id.emplace_back(var_node(5, id, param_i->dimen.len2));
                         }
                         pos++;
                     }
@@ -1026,31 +1047,43 @@ int Voidfun(int head, Output_region*& out){
             if (param_i->is_const) {Error = true; return END;}
             //找到合法的变量
             if (param_i->dimen.dimen == 1){
-                if (param_i->space) {
-                    int id = Output_region::get_new_id();
-                    out->insert_getele_1(id , var_node(0,param_i->dimen.len1),  var_node(1, param_i->id), var_node(0, 0));
-                    param_id.emplace_back(var_node(2, id));
+                if (param_i->dimen.len1) {
+                    if (param_i->space) {
+                        int id = Output_region::get_new_id();
+                        out->insert_getele_1(id, var_node(0, param_i->dimen.len1), var_node(1, param_i->id),var_node(0, 0));
+                        param_id.emplace_back(var_node(2, id));
+                    } else {
+                        int id = Output_region::get_new_id();
+                        out->insert_getele_1(id, var_node(0, param_i->dimen.len1), var_node(param_i->name),var_node(0, 0));
+                        param_id.emplace_back(var_node(4, id));
+                    }
                 }
                 else {
                     int id = Output_region::get_new_id();
-                    out->insert_getele_1(id , var_node(0,param_i->dimen.len1),  var_node(param_i->name), var_node(0, 0));
-                    param_id.emplace_back(var_node(4, id));
+                    out->insert_load(id, var_node(2, param_i->id));
+                    param_id.emplace_back(var_node(2, id));
                 }
             }
-            else if (param_i->dimen.dimen == 2){
+            else if (param_i->dimen.dimen == 2){  //二维传一维
                 if (words[++pos].id != 18) {Error = true; return END;} //[
                 int re_id,re_type;
                 pos = Exp(pos + 1, re_id, re_type, out);
                 if (words[pos].id != 19) {Error = true; return END;}
-                if (param_i->space) {
-                    int id = Output_region::get_new_id();
-                    out->insert_getele_2(id , var_node(0,param_i->dimen.len1), var_node(0,param_i->dimen.len2),  var_node(1, param_i->id), var_node(re_type, re_id), var_node(0, 0));
-                    param_id.emplace_back(var_node(2, id));
+                if (param_i->dimen.len1) {
+                    if (param_i->space) {
+                        int id = Output_region::get_new_id();
+                        out->insert_getele_2(id, var_node(0, param_i->dimen.len1), var_node(0, param_i->dimen.len2), var_node(1, param_i->id), var_node(re_type, re_id), var_node(0, 0));
+                        param_id.emplace_back(var_node(2, id));
+                    } else {
+                        int id = Output_region::get_new_id();
+                        out->insert_getele_2(id, var_node(0, param_i->dimen.len1), var_node(0, param_i->dimen.len2), var_node(param_i->name), var_node(re_type, re_id), var_node(0, 0));
+                        param_id.emplace_back(var_node(4, id));
+                    }
                 }
                 else {
                     int id = Output_region::get_new_id();
-                    out->insert_getele_2(id , var_node(0,param_i->dimen.len1), var_node(0,param_i->dimen.len2),  var_node(param_i->name), var_node(re_type, re_id), var_node(0, 0));
-                    param_id.emplace_back(var_node(4, id));
+                    out->insert_getele_ptr_2(id, var_node(0, param_i->dimen.len2), var_node(1, param_i->id), var_node(0, 0), var_node(re_type, re_id));
+                    param_id.emplace_back(var_node(2, id, param_i->dimen.len2));
                 }
             }
             else {Error = true; return END;}
@@ -1063,15 +1096,21 @@ int Voidfun(int head, Output_region*& out){
             if (param_i->is_func) {Error = true; return END;}
             if (param_i->is_const) {Error = true; return END;}
             if (param_i->dimen.dimen != 2) {Error = true; return END;}
-            if (param_i->space) {
-                int id = Output_region::get_new_id();
-                out->insert_getele_2_to_1(id , var_node(0,param_i->dimen.len1), var_node(0,param_i->dimen.len2),  var_node(1, param_i->id), var_node(0, 0));
-                param_id.emplace_back(var_node(5, id, param_i->dimen.len2));
+            if (param_i->dimen.len1) {
+                if (param_i->space) {
+                    int id = Output_region::get_new_id();
+                    out->insert_getele_2_to_1(id, var_node(0, param_i->dimen.len1), var_node(0, param_i->dimen.len2), var_node(1, param_i->id), var_node(0, 0));
+                    param_id.emplace_back(var_node(5, id, param_i->dimen.len2));
+                } else {
+                    int id = Output_region::get_new_id();
+                    out->insert_getele_2_to_1(id, var_node(0, param_i->dimen.len1), var_node(0, param_i->dimen.len2), var_node(param_i->name), var_node(0, 0));
+                    param_id.emplace_back(var_node(6, id, param_i->dimen.len2));
+                }
             }
             else {
                 int id = Output_region::get_new_id();
-                out->insert_getele_2_to_1(id , var_node(0,param_i->dimen.len1), var_node(0,param_i->dimen.len2),  var_node(param_i->name), var_node(0, 0));
-                param_id.emplace_back(var_node(6, id, param_i->dimen.len2));
+                out->insert_load(id, var_node(5, param_i->id, param_i->dimen.len2));
+                param_id.emplace_back(var_node(5, id, param_i->dimen.len2));
             }
             pos++;
         }
@@ -1294,12 +1333,20 @@ int Stmt(int head, Output_region*& out){
         if (words[pos++].id != 17) {Error = true; puts("Error at stmt1"); return END;}
     }
     else if (words[pos].id == 8){ //return
-        int re_id,re_type;
-        pos = Exp(pos + 1,re_id,re_type, out);
-        if (Error) return END;
-        if (words[pos].id != 13) {Error = true; puts("Error at Stmt 1"); return END;}
-        return_value(re_id,re_type, out); //@return
-        pos++;
+        if (now_func_type) {
+            int re_id, re_type;
+            pos = Exp(pos + 1, re_id, re_type, out);
+            if (Error) return END;
+            if (words[pos].id != 13) {Error = true; puts("Error at Stmt 1"); return END;}
+            return_value(re_id,re_type, out); //@return
+            pos++;
+        }
+        else {
+            if (words[++pos].id != 13) {Error = true; puts("Error at Stmt 1"); return END;}
+            Output_region::get_new_id();
+            out->insert_ret_void();
+            pos++;
+        }
     }
     //赋值
     else if (words[pos].id == 1 && words[pos + 1].id == 12){
@@ -1502,12 +1549,11 @@ int FuncDef(int head){
     Space = Space_cnt;
     auto *out = new Output_region();
     opt_id_cnt = -1;
-    int re_type = 0;
     if (words[pos].id == 10){  //void
-        re_type = 0;
+        now_func_type = 0;
     }
     else if (words[pos].id == 9){  //int
-        re_type = 1;
+        now_func_type = 1;
     }
     else {Error = true; puts("unknown type"); return END;}
     pos++;
@@ -1538,7 +1584,7 @@ int FuncDef(int head){
         else {Error = true; puts("type not found"); return END;}
     }
     //printf("u size:%d\n",u.size());
-    out->insert_def_func(re_type, words[pos_name].name, u);
+    out->insert_def_func(now_func_type, words[pos_name].name, u);
     //将参数赋值到函数内变量中
     t_opt_id = -1;
     Output_region::get_new_id();  //不知道为什么要丢掉一个id
@@ -1563,9 +1609,18 @@ int FuncDef(int head){
         else {Error = true; puts("type not found"); return END;}
     }
     //printf("re_type:%d\n",re_type);
-    sym_insert(words[pos_name].name, 0, 0, Dimen(), false, true, re_type, p);
+    sym_insert(words[pos_name].name, 0, 0, Dimen(), false, true, now_func_type, p);
     pos = Block(pos, out);
     if (Error){puts("something wrong"); return END;}
+    //加一个ret语句防止报错
+    if (now_func_type) {
+        Output_region::get_new_id();
+        out->insert_ret(var_node(0, 0));
+    }
+    else {
+        Output_region::get_new_id();
+        out->insert_ret_void();
+    }
     while (out->pre != nullptr) out = out->pre;
     opt_id_cnt = -1; out->output(); //输出
     if (words[pos++].id == 17){   //}
