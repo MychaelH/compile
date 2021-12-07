@@ -8,12 +8,13 @@
 #include <utility>
 #include<vector>
 #include<cstring>
+#include "symbol_table.h"
+using namespace std;
 static int opt_id_cnt;
 //while循环记录
 static int while_head[10005],while_out[10005],st_while[10005],while_id_cnt,while_pos;
 //防止一块输出多个br
 static int cnt_br;
-
 
 struct var_node{
     int type{0};  //0:i32 id  1:i32 %id  2:i32* %id 3:i32 @a
@@ -38,7 +39,7 @@ struct var_node{
 struct Output_region;
 
 struct output_unit{
-    int type{0};  //0:line 1:block
+    int type{0};  //0:line 1:block  2:block with
     int opt_t{}; //0:alloc 1:store 2:load 3:call void 4:call i32 5:ret
     //6:add 7:sub 8:mul 9:sdiv 10:srem 11:zext 12:icmp eq
     //13:ne 14:sgt 15:slt 16:sge 17:sle 18:br 19:label
@@ -53,6 +54,9 @@ struct output_unit{
     //33:ret void
     //icmp....
     int left_id{};
+    int delta{0};
+    int return_id{0};
+    int out_label{0};
     char *name{nullptr};
     func_params *p{nullptr};
     vector<var_node> opt_num;
@@ -126,6 +130,13 @@ struct output_unit{
     output_unit(int type,Output_region* b){
         this->type = type;
         this->block = b;
+    }
+    output_unit(int type,Output_region* b,int delta, int return_id, int out_label){
+        this->type = type;
+        this->block = b;
+        this->delta = delta;
+        this->return_id = return_id;
+        this->out_label = out_label;
     }
 };
 
@@ -255,51 +266,79 @@ struct Output_region{
     void insert_ret_void(){
         out.emplace_back(output_unit(0, 33));
     }
+    void insert_getelepr_2_1(int id, var_node a, var_node b, var_node pos){
+        out.emplace_back(output_unit(0, 34, a, b, pos, id));
+    };
     void insert_block(Output_region* inside_region){
         out.emplace_back(output_unit(1, inside_region));
         inside_region->pre = this;
     }
-    void output(){
+    void insert_inline_call(int re_id, symbol* p, int& opt_cnt,int delta, const vector<var_node>& para){
+        int id = 0;
+        for (unsigned int j = 0; j < para.size(); j++,id++){
+            const var_node& t = para[j];
+            if (t.type == 0 || t.type == 1) {
+                this->insert_add(id + delta, var_node(0, 0), var_node(t.type, t.id));
+            }
+            else if (t.type == 2){
+                this->insert_getele_ptr_1(id + delta, t, var_node(0, 0));
+            }
+            else if (t.type == 5) {
+                this->insert_getelepr_2_1(id + delta, var_node(0, t.len), t, var_node(0, 0));
+            }
+        }
+        this->insert_add(id + delta, var_node(0, 0), var_node(0, 0));
+        opt_cnt = id + delta;
+        this->out.emplace_back(output_unit(2, p->out, delta, re_id - delta, p->max_id + 1));
+        //printf("%d\n",p->max_id);
+        opt_cnt = p->max_id + delta + 1;
+        this->insert_label(opt_cnt);
+        this->insert_add(++opt_cnt, var_node(0, 0), var_node(0, 0));
+    }
+    void output(int type = 1, int delta = 0, int return_id = 0, int out_label = 0){
         if (is_labeled && this->label != -1){
-            printf("%d:\n",this->label);
+            printf("%d:\n",this->label + delta);
             opt_id_cnt++;
             cnt_br = 0;
         }
         for (auto & u : out){
             if (u.type == 1){
-                (u.block)->output();
+                (u.block)->output(type, delta, return_id, out_label);
+            }
+            else if (u.type == 2){
+                (u.block)->output(2, u.delta + delta, u.return_id, u.out_label);
             }
             else {
                 switch(u.opt_t){
                     case 0: //alloc
-                        printf("\t%%%d = alloca i32\n",u.left_id);
+                        printf("\t%%%d = alloca i32\n",u.left_id + delta);
                         opt_id_cnt++;
                         break;
                     case 1:  //store
                         if (u.opt_num[0].type == 0){
                             if (u.opt_num[1].type == 3) printf("\tstore i32 %d, i32* @%s\n", u.opt_num[0].id, u.opt_num[1].name);
-                            else if (u.opt_num[1].type == 1) printf("\tstore i32 %d, i32* %%%d\n", u.opt_num[0].id, u.opt_num[1].id);
-                            else if (u.opt_num[1].type == 2) printf("\tstore i32 %d, i32* * %%%d\n", u.opt_num[0].id, u.opt_num[1].id);
+                            else if (u.opt_num[1].type == 1) printf("\tstore i32 %d, i32* %%%d\n", u.opt_num[0].id, u.opt_num[1].id + delta);
+                            else if (u.opt_num[1].type == 2) printf("\tstore i32 %d, i32* * %%%d\n", u.opt_num[0].id, u.opt_num[1].id + delta);
                         }
                         else if (u.opt_num[0].type == 1){
-                            if (u.opt_num[1].type == 3) printf("\tstore i32 %%%d, i32* @%s\n", u.opt_num[0].id, u.opt_num[1].name);
-                            else if (u.opt_num[1].type == 1) printf("\tstore i32 %%%d, i32* %%%d\n", u.opt_num[0].id, u.opt_num[1].id);
+                            if (u.opt_num[1].type == 3) printf("\tstore i32 %%%d, i32* @%s\n", u.opt_num[0].id + delta, u.opt_num[1].name);
+                            else if (u.opt_num[1].type == 1) printf("\tstore i32 %%%d, i32* %%%d\n", u.opt_num[0].id + delta, u.opt_num[1].id + delta);
                         }
                         else if (u.opt_num[0].type == 2){
-                            if (u.opt_num[1].type == 4) printf("\tstore i32* %%%d, i32* * @%s\n", u.opt_num[0].id, u.opt_num[1].name);
-                            else if (u.opt_num[1].type == 2) printf("\tstore i32* %%%d, i32* * %%%d\n", u.opt_num[0].id, u.opt_num[1].id);
+                            if (u.opt_num[1].type == 4) printf("\tstore i32* %%%d, i32* * @%s\n", u.opt_num[0].id + delta, u.opt_num[1].name);
+                            else if (u.opt_num[1].type == 2) printf("\tstore i32* %%%d, i32* * %%%d\n", u.opt_num[0].id + delta, u.opt_num[1].id + delta);
                         }
                         else if (u.opt_num[0].type == 5) {
-                            if (u.opt_num[1].type == 5) printf("\tstore [%d x i32]* %%%d, [%d x i32]* * %%%d\n", u.opt_num[0].len, u.opt_num[0].id, u.opt_num[1].len, u.opt_num[1].id);
+                            if (u.opt_num[1].type == 5) printf("\tstore [%d x i32]* %%%d, [%d x i32]* * %%%d\n", u.opt_num[0].len, u.opt_num[0].id + delta, u.opt_num[1].len, u.opt_num[1].id + delta);
                             else puts("Error at output1");
                         }
                         else puts("Error at output1");
                         break;
                     case 2:  //load
-                        if (u.opt_num[0].type == 5) printf("\t%%%d = load [%d x i32]*, [%d x i32]* * %%%d\n",u.left_id, u.opt_num[0].len, u.opt_num[0].len,u.opt_num[0].id);
-                        else if (u.opt_num[0].type == 2) printf("\t%%%d = load i32*, i32* * %%%d\n",u.left_id,u.opt_num[0].id);
-                        else if (u.opt_num[0].type == 3) printf("\t%%%d = load i32, i32* @%s\n",u.left_id,u.opt_num[0].name);
-                        else printf("\t%%%d = load i32, i32* %%%d\n",u.left_id,u.opt_num[0].id);
+                        if (u.opt_num[0].type == 5) printf("\t%%%d = load [%d x i32]*, [%d x i32]* * %%%d\n",u.left_id + delta, u.opt_num[0].len, u.opt_num[0].len,u.opt_num[0].id + delta);
+                        else if (u.opt_num[0].type == 2) printf("\t%%%d = load i32*, i32* * %%%d\n",u.left_id + delta,u.opt_num[0].id + delta);
+                        else if (u.opt_num[0].type == 3) printf("\t%%%d = load i32, i32* @%s\n",u.left_id + delta,u.opt_num[0].name);
+                        else printf("\t%%%d = load i32, i32* %%%d\n",u.left_id + delta,u.opt_num[0].id + delta);
                         opt_id_cnt++;
                         break;
                     case 3: //call void
@@ -310,10 +349,10 @@ struct Output_region{
                                 printf("i32 %d", u.opt_num[j].id);
                             }
                             else if (u.opt_num[j].type == 1){
-                                printf("i32 %%%d", u.opt_num[j].id);
+                                printf("i32 %%%d", u.opt_num[j].id + delta);
                             }
                             else if (u.opt_num[j].type == 2){
-                                printf("i32* %%%d", u.opt_num[j].id);
+                                printf("i32* %%%d", u.opt_num[j].id + delta);
                             }
                             else if (u.opt_num[j].type == 3){
                                 printf("i32 @%s", u.opt_num[j].name);
@@ -322,7 +361,7 @@ struct Output_region{
                                 printf("i32* @%s", u.opt_num[j].name);
                             }
                             else if (u.opt_num[j].type == 5){
-                                printf("[%d x i32]* %%%d", u.opt_num[j].len, u.opt_num[j].id);
+                                printf("[%d x i32]* %%%d", u.opt_num[j].len, u.opt_num[j].id + delta);
                             }
                             else if (u.opt_num[j].type == 6){
                                 printf("[%d x i32]* @%s", u.opt_num[j].len, u.opt_num[j].name);
@@ -332,17 +371,17 @@ struct Output_region{
                         printf(")\n");
                         break;
                     case 4:
-                        printf("\t%%%d = call i32 @%s(", u.left_id, u.name);
+                        printf("\t%%%d = call i32 @%s(", u.left_id + delta, u.name);
                         for (unsigned int j = 0; j < u.opt_num.size(); j++){
                             if (j) printf(", ");
                             if (u.opt_num[j].type == 0) {
                                 printf("i32 %d", u.opt_num[j].id);
                             }
                             else if (u.opt_num[j].type == 1){
-                                printf("i32 %%%d", u.opt_num[j].id);
+                                printf("i32 %%%d", u.opt_num[j].id + delta);
                             }
                             else if (u.opt_num[j].type == 2){
-                                printf("i32* %%%d", u.opt_num[j].id);
+                                printf("i32* %%%d", u.opt_num[j].id + delta);
                             }
                             else if (u.opt_num[j].type == 3){
                                 printf("i32 @%s", u.opt_num[j].name);
@@ -351,7 +390,7 @@ struct Output_region{
                                 printf("i32* @%s", u.opt_num[j].name);
                             }
                             else if (u.opt_num[j].type == 5){
-                                printf("[%d x i32]* %%%d", u.opt_num[j].len, u.opt_num[j].id);
+                                printf("[%d x i32]* %%%d", u.opt_num[j].len, u.opt_num[j].id + delta);
                             }
                             else if (u.opt_num[j].type == 6){
                                 printf("[%d x i32]* @%s", u.opt_num[j].len, u.opt_num[j].name);
@@ -362,24 +401,37 @@ struct Output_region{
                         opt_id_cnt++;
                         break;
                     case 5:
-                        printf("\tret ");
-                        if (u.opt_num[0].type == 0){
-                            printf("i32 %d\n", u.opt_num[0].id);
+                        if (type != 2) {
+                            printf("\tret ");
+                            if (u.opt_num[0].type == 0) {
+                                printf("i32 %d\n", u.opt_num[0].id);
+                            } else if (u.opt_num[0].type == 1) {
+                                printf("i32 %%%d\n", u.opt_num[0].id + delta);
+                            } else puts("Error at output5");
+                            opt_id_cnt++;
                         }
-                        else if (u.opt_num[0].type == 1){
-                            printf("i32 %%%d\n", u.opt_num[0].id);
+                        else {
+                            printf("\t%%%d = add i32 0, 0\n", ++opt_id_cnt);
+                            if (u.opt_num[0].type == 0) {
+                                printf("\tstore i32 %d, i32* %%%d\n", u.opt_num[0].id, return_id + delta);
+                            } else if (u.opt_num[0].type == 1) {
+                                printf("\tstore i32 %%%d, i32* %%%d\n", u.opt_num[0].id + delta, return_id + delta);
+                            } else puts("Error at output5");
+                            if (cnt_br < 1){
+                                printf("\tbr label %%%d\n",out_label + delta);
+                                cnt_br++;
+                            }
+
                         }
-                        else puts("Error at output5");
-                        opt_id_cnt++;
                         break;
                     case 6: //add
-                        printf("\t%%%d = add i32 ", u.left_id);
+                        printf("\t%%%d = add i32 ", u.left_id + delta);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
                                 printf("%d", u.opt_num[j].id);
                             }
                             else if (u.opt_num[j].type == 1){
-                                printf("%%%d", u.opt_num[j].id);
+                                printf("%%%d", u.opt_num[j].id + delta);
                             }
                             else puts("Error at output6");
                             if (!j) printf(", ");
@@ -388,13 +440,13 @@ struct Output_region{
                         opt_id_cnt++;
                         break;
                     case 7: //sub
-                        printf("\t%%%d = sub i32 ", u.left_id);
+                        printf("\t%%%d = sub i32 ", u.left_id + delta);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
                                 printf("%d", u.opt_num[j].id);
                             }
                             else if (u.opt_num[j].type == 1){
-                                printf("%%%d", u.opt_num[j].id);
+                                printf("%%%d", u.opt_num[j].id + delta);
                             }
                             else puts("Error at output6");
                             if (!j) printf(", ");
@@ -403,13 +455,13 @@ struct Output_region{
                         opt_id_cnt++;
                         break;
                     case 8:  //mul
-                        printf("\t%%%d = mul i32 ", u.left_id);
+                        printf("\t%%%d = mul i32 ", u.left_id + delta);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
                                 printf("%d", u.opt_num[j].id);
                             }
                             else if (u.opt_num[j].type == 1){
-                                printf("%%%d", u.opt_num[j].id);
+                                printf("%%%d", u.opt_num[j].id + delta);
                             }
                             else puts("Error at output6");
                             if (!j) printf(", ");
@@ -418,13 +470,13 @@ struct Output_region{
                         opt_id_cnt++;
                         break;
                     case 9:  //sdiv
-                        printf("\t%%%d = sdiv i32 ", u.left_id);
+                        printf("\t%%%d = sdiv i32 ", u.left_id + delta);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
                                 printf("%d", u.opt_num[j].id);
                             }
                             else if (u.opt_num[j].type == 1){
-                                printf("%%%d", u.opt_num[j].id);
+                                printf("%%%d", u.opt_num[j].id + delta);
                             }
                             else puts("Error at output6");
                             if (!j) printf(", ");
@@ -433,13 +485,13 @@ struct Output_region{
                         opt_id_cnt++;
                         break;
                     case 10:  //srem
-                        printf("\t%%%d = srem i32 ", u.left_id);
+                        printf("\t%%%d = srem i32 ", u.left_id + delta);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
                                 printf("%d", u.opt_num[j].id);
                             }
                             else if (u.opt_num[j].type == 1){
-                                printf("%%%d", u.opt_num[j].id);
+                                printf("%%%d", u.opt_num[j].id + delta);
                             }
                             else puts("Error at output6");
                             if (!j) printf(", ");
@@ -448,17 +500,17 @@ struct Output_region{
                         opt_id_cnt++;
                         break;
                     case 11:  //zext
-                        printf("\t%%%d = zext i1 %%%d to i32\n", u.left_id, u.opt_num[0].id);
+                        printf("\t%%%d = zext i1 %%%d to i32\n", u.left_id + delta, u.opt_num[0].id + delta);
                         opt_id_cnt++;
                         break;
                     case 12:   //eq
-                        printf("\t%%%d = icmp eq i32 ", u.left_id);
+                        printf("\t%%%d = icmp eq i32 ", u.left_id + delta);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
                                 printf("%d", u.opt_num[j].id);
                             }
                             else if (u.opt_num[j].type == 1){
-                                printf("%%%d", u.opt_num[j].id);
+                                printf("%%%d", u.opt_num[j].id + delta);
                             }
                             else puts("Error at output12");
                             if (!j) printf(", ");
@@ -467,13 +519,13 @@ struct Output_region{
                         opt_id_cnt++;
                         break;
                     case 13:  //ne
-                        printf("\t%%%d = icmp ne i32 ", u.left_id);
+                        printf("\t%%%d = icmp ne i32 ", u.left_id + delta);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
                                 printf("%d", u.opt_num[j].id);
                             }
                             else if (u.opt_num[j].type == 1){
-                                printf("%%%d", u.opt_num[j].id);
+                                printf("%%%d", u.opt_num[j].id + delta);
                             }
                             else puts("Error at output12");
                             if (!j) printf(", ");
@@ -482,13 +534,13 @@ struct Output_region{
                         opt_id_cnt++;
                         break;
                     case 14: //sgt
-                        printf("\t%%%d = icmp sgt i32 ", u.left_id);
+                        printf("\t%%%d = icmp sgt i32 ", u.left_id + delta);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
                                 printf("%d", u.opt_num[j].id);
                             }
                             else if (u.opt_num[j].type == 1){
-                                printf("%%%d", u.opt_num[j].id);
+                                printf("%%%d", u.opt_num[j].id + delta);
                             }
                             else puts("Error at output12");
                             if (!j) printf(", ");
@@ -497,13 +549,13 @@ struct Output_region{
                         opt_id_cnt++;
                         break;
                     case 15:  //slt
-                        printf("\t%%%d = icmp slt i32 ", u.left_id);
+                        printf("\t%%%d = icmp slt i32 ", u.left_id + delta);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
                                 printf("%d", u.opt_num[j].id);
                             }
                             else if (u.opt_num[j].type == 1){
-                                printf("%%%d", u.opt_num[j].id);
+                                printf("%%%d", u.opt_num[j].id + delta);
                             }
                             else puts("Error at output12");
                             if (!j) printf(", ");
@@ -512,13 +564,13 @@ struct Output_region{
                         opt_id_cnt++;
                         break;
                     case 16:  //sge
-                        printf("\t%%%d = icmp sge i32 ", u.left_id);
+                        printf("\t%%%d = icmp sge i32 ", u.left_id + delta);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
                                 printf("%d", u.opt_num[j].id);
                             }
                             else if (u.opt_num[j].type == 1){
-                                printf("%%%d", u.opt_num[j].id);
+                                printf("%%%d", u.opt_num[j].id + delta);
                             }
                             else puts("Error at output12");
                             if (!j) printf(", ");
@@ -527,13 +579,13 @@ struct Output_region{
                         opt_id_cnt++;
                         break;
                     case 17:  //sle
-                        printf("\t%%%d = icmp sle i32 ", u.left_id);
+                        printf("\t%%%d = icmp sle i32 ", u.left_id + delta);
                         for (int j = 0; j <= 1; j++){
                             if (u.opt_num[j].type == 0){
                                 printf("%d", u.opt_num[j].id);
                             }
                             else if (u.opt_num[j].type == 1){
-                                printf("%%%d", u.opt_num[j].id);
+                                printf("%%%d", u.opt_num[j].id + delta);
                             }
                             else puts("Error at output12");
                             if (!j) printf(", ");
@@ -543,80 +595,81 @@ struct Output_region{
                         break;
                     case 18:  //br
                         if (cnt_br < 1){
-                            printf("\tbr label %%%d\n",u.left_id);
+                            printf("\tbr label %%%d\n",u.left_id + delta);
                             cnt_br++;
                         }
                         break;
                     case 19:
-                        printf("%d:\n",u.left_id);
+                        printf("%d:\n",u.left_id + delta);
                         opt_id_cnt++;
                         cnt_br = 0;
                         break;
                     case 20:
                         if (cnt_br < 1){
-                            printf("\tbr label %%%d\n",while_head[u.left_id]);
+                            printf("\tbr label %%%d\n",while_head[u.left_id] + delta);
                             cnt_br++;
                         }
                         break;
                     case 21:
                         if (cnt_br < 1){
-                            printf("\tbr label %%%d\n",while_out[u.left_id]);
+                            printf("\tbr label %%%d\n",while_out[u.left_id] + delta);
                             cnt_br++;
                         }
                         break;
                     case 22:
-                        printf("\t%%%d = alloca [%d x i32]\n", u.left_id, u.opt_num[0].id);
+                        printf("\t%%%d = alloca [%d x i32]\n", u.left_id + delta, u.opt_num[0].id);
                         opt_id_cnt++;
                         break;
                     case 23:
-                        printf("\t%%%d = alloca [%d x [%d x i32]]\n", u.left_id, u.opt_num[0].id, u.opt_num[1].id);
+                        printf("\t%%%d = alloca [%d x [%d x i32]]\n", u.left_id + delta, u.opt_num[0].id, u.opt_num[1].id);
                         opt_id_cnt++;
                         break;
                     case 24:
                         if (u.opt_num[1].type == 1){
-                            printf("\t%%%d = getelementptr [%d x i32], [%d x i32]* %%%d, i32 0, i32 ", u.left_id, u.opt_num[0].id, u.opt_num[0].id, u.opt_num[1].id);
+                            printf("\t%%%d = getelementptr [%d x i32], [%d x i32]* %%%d, i32 0, i32 ", u.left_id + delta, u.opt_num[0].id, u.opt_num[0].id, u.opt_num[1].id + delta);
                         }
                         else if (u.opt_num[1].type == 3){
-                            printf("\t%%%d = getelementptr [%d x i32], [%d x i32]* @%s, i32 0, i32 ", u.left_id, u.opt_num[0].id, u.opt_num[0].id, u.opt_num[1].name);
+                            printf("\t%%%d = getelementptr [%d x i32], [%d x i32]* @%s, i32 0, i32 ", u.left_id + delta, u.opt_num[0].id, u.opt_num[0].id, u.opt_num[1].name);
                         }
                         else puts("Error at output24");
                         if (u.opt_num[2].type == 0){
                             printf("%d\n",u. opt_num[2].id);
                         }
                         else if (u.opt_num[2].type == 1){
-                            printf("%%%d\n",u. opt_num[2].id);
+                            printf("%%%d\n",u. opt_num[2].id + delta);
                         }
                         else puts("Error at output24");
                         opt_id_cnt++;
                         break;
                     case 25:
                         if (u.opt_num[2].type == 1) {
-                            printf("\t%%%d = getelementptr [%d x [%d x i32]], [%d x [%d x i32]]* %%%d, i32 0, i32 ",u.left_id, u.opt_num[0].id, u.opt_num[1].id, u.opt_num[0].id, u.opt_num[1].id,u.opt_num[2].id);
+                            printf("\t%%%d = getelementptr [%d x [%d x i32]], [%d x [%d x i32]]* %%%d, i32 0, i32 ",u.left_id + delta, u.opt_num[0].id, u.opt_num[1].id, u.opt_num[0].id, u.opt_num[1].id,u.opt_num[2].id + delta);
                         }
                         else if (u.opt_num[2].type == 3) {
-                            printf("\t%%%d = getelementptr [%d x [%d x i32]], [%d x [%d x i32]]* @%s, i32 0, i32 ",u.left_id, u.opt_num[0].id, u.opt_num[1].id, u.opt_num[0].id, u.opt_num[1].id,u.opt_num[2].name);
+                            printf("\t%%%d = getelementptr [%d x [%d x i32]], [%d x [%d x i32]]* @%s, i32 0, i32 ",u.left_id + delta, u.opt_num[0].id, u.opt_num[1].id, u.opt_num[0].id, u.opt_num[1].id,u.opt_num[2].name);
                         }
                         else puts("Error at output25");
                         if (u.opt_num[3].type == 0){
                             printf("%d, i32 ",u. opt_num[3].id);
                         }
                         else if (u.opt_num[3].type == 1){
-                            printf("%%%d, i32 ",u. opt_num[3].id);
+                            printf("%%%d, i32 ",u. opt_num[3].id + delta);
                         }
                         else puts("Error at output25");
                         if (u.opt_num[4].type == 0){
                             printf("%d\n",u. opt_num[4].id);
                         }
                         else if (u.opt_num[4].type == 1){
-                            printf("%%%d\n",u. opt_num[4].id);
+                            printf("%%%d\n",u. opt_num[4].id + delta);
                         }
                         else puts("Error at output25");
                         opt_id_cnt++;
                         break;
                     case 26:
-                        printf("\tcall void @memset(i32* %%%d, i32 0, i32 %d)\n", u.opt_num[0].id, u.opt_num[1].id);
+                        printf("\tcall void @memset(i32* %%%d, i32 0, i32 %d)\n", u.opt_num[0].id + delta, u.opt_num[1].id);
                         break;
                     case 27:
+                        if (type == 2) break;
                         printf("define ");
                         if (u.left_id == 0) printf("void ");
                         else printf("i32 ");
@@ -641,47 +694,63 @@ struct Output_region{
                         break;
                     case 28:
                         if (u.opt_num[2].type == 1) {
-                            printf("\t%%%d = getelementptr [%d x [%d x i32]], [%d x [%d x i32]]* %%%d, i32 0, i32 ",u.left_id, u.opt_num[0].id, u.opt_num[1].id, u.opt_num[0].id, u.opt_num[1].id,u.opt_num[2].id);
+                            printf("\t%%%d = getelementptr [%d x [%d x i32]], [%d x [%d x i32]]* %%%d, i32 0, i32 ",u.left_id + delta, u.opt_num[0].id, u.opt_num[1].id, u.opt_num[0].id, u.opt_num[1].id,u.opt_num[2].id + delta);
                         }
                         else if (u.opt_num[2].type == 3) {
-                            printf("\t%%%d = getelementptr [%d x [%d x i32]], [%d x [%d x i32]]* @%s, i32 0, i32 ",u.left_id, u.opt_num[0].id, u.opt_num[1].id, u.opt_num[0].id, u.opt_num[1].id,u.opt_num[2].name);
+                            printf("\t%%%d = getelementptr [%d x [%d x i32]], [%d x [%d x i32]]* @%s, i32 0, i32 ",u.left_id + delta, u.opt_num[0].id, u.opt_num[1].id, u.opt_num[0].id, u.opt_num[1].id,u.opt_num[2].name);
                         }
                         else puts("Error at output28");
                         if (u.opt_num[3].type == 0){
                             printf("%d\n",u. opt_num[3].id);
                         }
                         else if (u.opt_num[3].type == 1){
-                            printf("%%%d\n",u. opt_num[3].id);
+                            printf("%%%d\n",u. opt_num[3].id + delta);
                         }
                         else puts("Error at output28");
                         opt_id_cnt++;
                         break;
                     case 29:
-                        printf("\t%%%d = alloca [%d x i32]*\n", u.left_id, u.opt_num[0].id);
+                        printf("\t%%%d = alloca [%d x i32]*\n", u.left_id + delta, u.opt_num[0].id);
                         opt_id_cnt++;
                         break;
                     case 30:
-                        printf("\t%%%d = alloca i32*\n", u.left_id);
+                        printf("\t%%%d = alloca i32*\n", u.left_id + delta);
                         opt_id_cnt++;
                         break;
                     case 31:
-                        if (u.opt_num[1].type == 0) printf("\t%%%d = getelementptr i32, i32* %%%d, i32 %d\n", u.left_id, u.opt_num[0].id, u.opt_num[1].id);
-                        else if (u.opt_num[1].type == 1) printf("\t%%%d = getelementptr i32, i32* %%%d, i32 %%%d\n", u.left_id, u.opt_num[0].id, u.opt_num[1].id);
+                        if (u.opt_num[1].type == 0) printf("\t%%%d = getelementptr i32, i32* %%%d, i32 %d\n", u.left_id + delta, u.opt_num[0].id + delta, u.opt_num[1].id);
+                        else if (u.opt_num[1].type == 1) printf("\t%%%d = getelementptr i32, i32* %%%d, i32 %%%d\n", u.left_id + delta, u.opt_num[0].id + delta, u.opt_num[1].id + delta);
                         else puts("wrong at 31");
                         opt_id_cnt++;
                         break;
                     case 32:
-                        printf("\t%%%d = getelementptr [%d x i32], [%d x i32]* %%%d, i32 \n", u.left_id, u.opt_num[0].id, u.opt_num[0].id, u.opt_num[1].id);
+                        printf("\t%%%d = getelementptr [%d x i32], [%d x i32]* %%%d, i32 \n", u.left_id + delta, u.opt_num[0].id, u.opt_num[0].id, u.opt_num[1].id + delta);
                         if (u.opt_num[2].type == 0) printf("%d, i32 ",u.opt_num[2].id);
-                        else if (u.opt_num[2].type == 1) printf("%%%d, i32 ",u.opt_num[2].id);
+                        else if (u.opt_num[2].type == 1) printf("%%%d, i32 ",u.opt_num[2].id + delta);
                         else puts("wrong at 32");
                         if (u.opt_num[3].type == 0) printf("%d\n",u.opt_num[3].id);
-                        else if (u.opt_num[3].type == 1) printf("%%%d\n",u.opt_num[3].id);
+                        else if (u.opt_num[3].type == 1) printf("%%%d\n",u.opt_num[3].id + delta);
                         else puts("wrong at 32");
                         opt_id_cnt++;
                         break;
                     case 33:
-                        printf("\tret void\n");
+                        if (type != 2) {
+                            printf("\tret void\n");
+                            opt_id_cnt++;
+                        }
+                        else {
+                            printf("\t%%%d = add i32 0, 0\n", ++opt_id_cnt);
+                            if (cnt_br < 1){
+                                printf("\tbr label %%%d\n",out_label + delta);
+                                cnt_br++;
+                            }
+                        }
+                        break;
+                    case 34:
+                        printf("\t%%%d = getelementptr [%d x i32], [%d x i32]* %%%d, i32 ", u.left_id + delta, u.opt_num[0].id, u.opt_num[0].id, u.opt_num[1].id + delta);
+                        if (u.opt_num[2].type == 0) printf("%d\n",u.opt_num[2].id);
+                        else if (u.opt_num[2].type == 1) printf("%%%d\n",u.opt_num[2].id + delta);
+                        else puts("wrong at 34");
                         opt_id_cnt++;
                         break;
                     default:puts("Error at output");break;
@@ -699,7 +768,7 @@ struct Output_region{
                     return;
                 }
                 if (cnt_br < 1){
-                    printf("\tbr label %%%d\n", t->p_jump->label);
+                    printf("\tbr label %%%d\n", t->p_jump->label + delta);
                     cnt_br++;
                 }
             }
@@ -736,7 +805,7 @@ struct Output_region{
                     nj = t->p_no->label;
                 }
                 if (cnt_br < 1){
-                    printf("\tbr i1 %%%d, label %%%d, label %%%d\n", opt_id_cnt, nj, yj);
+                    printf("\tbr i1 %%%d, label %%%d, label %%%d\n", opt_id_cnt, nj + delta, yj + delta);
                 }
             }
         }

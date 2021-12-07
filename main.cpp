@@ -13,6 +13,9 @@ bool Error;
 
 int now_func_type;
 
+int now_func_name_pos,is_call_self;
+
+
 int opt_cmp_chart[][11]={
         {1,1,0,0,0,1,1,1,1,1,1},
         {1,1,0,0,0,1,1,1,1,1,1},
@@ -494,7 +497,7 @@ int Exp(int head, int& re_id, int& re_type, Output_region*& out){        //表�
                     s_num.push(id);
                 }
                 else {
-                    int c_id = Output_region::get_new_id();;
+                    int c_id = Output_region::get_new_id();
                     out->insert_load(t_id, var_node(2, p->id));
                     out->insert_getele_ptr_1(id, var_node(1, t_id), var_node(a_type, a_id));
                     out->insert_load(c_id, var_node(1, id));
@@ -545,6 +548,7 @@ int Exp(int head, int& re_id, int& re_type, Output_region*& out){        //表�
             }
             else {            //function
                 //printf("%s: %d\n",p->name,p->re_type);
+                if (!strcmp(p->name,words[now_func_name_pos].name)) is_call_self = true;
                 if (p->re_type == 0) {Error = true;puts("Can't put a void function in an exp"); return END;}
                 if (words[++pos].id != 14) {Error = true; return END;} //(
                 func_params *u = p->params;
@@ -641,8 +645,18 @@ int Exp(int head, int& re_id, int& re_type, Output_region*& out){        //表�
                 if (words[pos].id != 15) {Error = true; return END;} //)
                 //@load func
                 int id = Output_region::get_new_id();
-                out->insert_call_i32(id, p->name, param_id);
-                s_num.push(id);
+                if (!p->isinline){
+                    out->insert_call_i32(id, p->name, param_id);
+                    s_num.push(id);
+                }
+                else {
+                    out->insert_alloc(id);
+                    out->insert_inline_call(id, p, opt_id_cnt, opt_id_cnt + 1,param_id);
+                    int t_id = Output_region::get_new_id();
+                    out->insert_load(t_id, var_node(1, id));
+                    s_num.push(t_id);
+                }
+
                 s_tag.push(1);
                 is_last_num = true;
             }
@@ -1025,6 +1039,7 @@ int Voidfun(int head, Output_region*& out){
     symbol* p = sym_getIdent(words[pos].name,Space);
     if (p == nullptr) {Error = true; puts("void fun Ident not found"); return END;}
     if (!p->is_func || p->re_type) {Error = true; puts("void fun not found"); return END;}
+    if (!strcmp(p->name,words[now_func_name_pos].name)) is_call_self = true;
     if (words[++pos].id != 14) {Error = true; return END;} //(
     func_params *u = p->params;
     bool first = true;
@@ -1119,11 +1134,14 @@ int Voidfun(int head, Output_region*& out){
     }
     if (words[pos++].id != 15) {Error = true; return END;} //)
     //@load func
-    out->insert_call_void(p->name, param_id);
+    if (!p->isinline) out->insert_call_void(p->name, param_id);
+    else {
+        out->insert_inline_call(0, p, opt_id_cnt, opt_id_cnt + 1,param_id);
+    }
     return pos;
 }
 
-int Block(int head, Output_region*& out);
+int Block(int head, Output_region*& out, bool add_space);
 int Stmt(int head, Output_region*& out);
 
 Output_region* do_and_exp(stack<Output_region*>& s_block){
@@ -1235,7 +1253,9 @@ int If(int head, Output_region*& out){
     stmt_out1->set_label();
     cond_out->p_yes = stmt_out1;
     t = stmt_out1;
+    int t_re = is_return[Space];
     pos = Stmt(pos, stmt_out1);
+    is_return[Space] = t_re;
     stmt_out1 = t;
     out->insert_block(stmt_out1);
     //else stmt
@@ -1245,7 +1265,9 @@ int If(int head, Output_region*& out){
     cond_out->p_no = stmt_out2;
     if (words[pos].id == 4){ //else
         t = stmt_out2;
+        t_re = is_return[Space];
         pos = Stmt(pos + 1, stmt_out2);
+        is_return[Space] = t_re;
         stmt_out2 = t;
     }
     out->insert_block(stmt_out2);
@@ -1281,7 +1303,9 @@ int While(int head, Output_region*& out){
     stmt_out->set_label();
     cond_out->p_yes = stmt_out;
     t = stmt_out;
+    int t_re = is_return[Space];
     pos = Stmt(pos, stmt_out);
+    is_return[Space] = t_re;
     stmt_out = t;
     stmt_out->insert_br(while_head[st_while[while_pos]]);
     out->insert_block(stmt_out);
@@ -1329,7 +1353,7 @@ int Stmt(int head, Output_region*& out){
     }
     //Block
     else if (words[pos].id == 16){  //{
-        pos = Block(pos + 1, out);
+        pos = Block(pos + 1, out, true);
         if (words[pos++].id != 17) {Error = true; puts("Error at stmt1"); return END;}
     }
     else if (words[pos].id == 8){ //return
@@ -1347,6 +1371,7 @@ int Stmt(int head, Output_region*& out){
             out->insert_ret_void();
             pos++;
         }
+        is_return[Space] = true;
     }
     //赋值
     else if (words[pos].id == 1 && words[pos + 1].id == 12){
@@ -1464,26 +1489,54 @@ int BlockItem(int head, Output_region*& out){
     int pos = head;
     while (words[pos].id != 17 && !Error) {   //遇到}退出
         if (words[pos].id == 11 || words[pos].id == 9) {  //const ||  int
-            pos = Decl(pos, out);
-            if (Error) return END;
+            if (is_return[Space]) {
+                auto *tmp = new Output_region();
+                int t_opt_id = opt_id_cnt;
+                pos = Decl(pos, tmp);
+                opt_id_cnt = t_opt_id;
+                if (Error) return END;
+            }
+            else {
+                pos = Decl(pos, out);
+                if (Error) return END;
+            }
         } else {
-            pos = Stmt(pos, out);
-            if (Error) return END;
+            if (is_return[Space]) {
+                auto *tmp = new Output_region();
+                int t_opt_id = opt_id_cnt;
+                pos = Stmt(pos, tmp);
+                opt_id_cnt = t_opt_id;
+                if (Error) return END;
+            }
+            else {
+                pos = Stmt(pos, out);
+                if (Error) return END;
+            }
         }
     }
     return pos;
 }
 
-int Block(int head, Output_region*& out){
+int Block(int head, Output_region*& out, bool add_space = true){
     int pos = head;
-    Space_cnt++;
-    Space_pre[Space_cnt] = Space;
-    Space = Space_cnt;
-    layer_cnt++;
+    if (add_space) {
+        Space_cnt++;
+        Space_pre[Space_cnt] = Space;
+        Space = Space_cnt;
+    }
+    is_return[Space] = false;
     pos = BlockItem(pos, out);
     if (Error) return END;
-    layer_cnt--;
-    Space = Space_pre[Space];
+    if (!is_return[Space] && Space_pre[Space] == 0) {
+        if (now_func_type) {
+            Output_region::get_new_id();
+            out->insert_ret(var_node(0, 0));
+        } else {
+            Output_region::get_new_id();
+            out->insert_ret_void();
+        }
+    }
+    if (add_space) Space = Space_pre[Space];
     return pos;
 }
 
@@ -1558,6 +1611,8 @@ int FuncDef(int head){
     else {Error = true; puts("unknown type"); return END;}
     pos++;
     int pos_name = pos;
+    now_func_name_pos = pos; //记录当前函数名
+    is_call_self = false;
     if (words[pos].id != 1) {Error = true; puts("no ident"); return END;}  //ident
     pos++;
     func_params *p = nullptr;
@@ -1610,23 +1665,27 @@ int FuncDef(int head){
     }
     //printf("re_type:%d\n",re_type);
     sym_insert(words[pos_name].name, 0, 0, Dimen(), false, true, now_func_type, p);
-    pos = Block(pos, out);
+    pos = Block(pos, out ,false);
     if (Error){puts("something wrong"); return END;}
+    // }
+    if (words[pos++].id != 17) {Error = true; puts("Error at Block 2"); return END;}
     //加一个ret语句防止报错
-    if (now_func_type) {
-        Output_region::get_new_id();
-        out->insert_ret(var_node(0, 0));
-    }
-    else {
-        Output_region::get_new_id();
-        out->insert_ret_void();
-    }
     while (out->pre != nullptr) out = out->pre;
-    opt_id_cnt = -1; out->output(); //输出
-    if (words[pos++].id == 17){   //}
+    //puts("pass");
+    if (!strcmp(words[now_func_name_pos].name,"main") || is_call_self) {
+        opt_id_cnt = -1;
+        out->output(); //输出
         printf("}\n");
     }
-    else {Error = true; puts("Error at Block 2"); return END;}
+    else {
+        /*opt_id_cnt = -1;
+        out->output(); //输出
+        printf("}\n");*/
+        symbol *self = sym_getIdent(words[now_func_name_pos].name, 0);
+        self->out = out;
+        self->max_id = opt_id_cnt;
+        self->isinline = true;
+    }
     Space = Space_pre[Space];
     return pos;
 }

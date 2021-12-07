@@ -16,8 +16,8 @@ const int P = 100007;
 
 int Space_cnt = 0; //环境总数
 int Space = 0;   //当前环境编号
+int is_return[P];
 int Space_pre[P]; //父亲环境
-int layer_cnt = 0;
 
 struct func_params{
     int type;   //0:传值  1:传指针  2:传2维指针
@@ -51,17 +51,22 @@ struct Dimen{
 
 Dimen d0 = Dimen();
 
+struct Output_region;
+
 struct symbol{
-    char* name;   //变量名
-    int space;   //作用域
-    int id;		//IR变量编号
-    bool is_const;  //是否常数
-    bool is_func;
-    int re_type;   //0void    1:i32
+    char* name{};   //变量名
+    int space{};   //作用域
+    int id{};		//IR变量编号
+    bool is_const{};  //是否常数
+    bool is_func{};
+    int re_type{};   //0void    1:i32
     Dimen dimen;
-    int* nums;
-    func_params *params;
-    symbol(){}
+    int* nums{};
+    bool isinline{false};
+    func_params *params{};
+    Output_region *out{nullptr};
+    int max_id{0};
+    symbol()= default;
     symbol(const char* name, int space, int id, Dimen dimen, bool is_const, bool is_func, int re_type, func_params* params){
         this->name = new char[sizeof(char) * (strlen(name) + 3)];
         strcpy(this->name,name);
@@ -72,6 +77,7 @@ struct symbol{
         this->re_type = re_type;
         this->params = params;
         this->dimen = dimen;
+        this->isinline = false;
         nums= nullptr;
     }
 };
